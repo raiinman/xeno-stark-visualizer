@@ -10,3 +10,13 @@
 @media(max-width:720px){body{grid-template-rows:105px minmax(0,1fr) 91px}.toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:47px 43px;gap:0 12px;padding:6px 16px 9px}.brand{font-size:12px}.repo-link{grid-column:1;grid-row:2;max-width:100%;font-size:11px}.toolbar-actions{grid-column:2;grid-row:2;justify-self:end}.search{grid-column:2;grid-row:1;width:148px;margin:0;padding:6px 0}.search input{font-size:12px}.map-status{top:18px;left:18px;font-size:11px;max-width:calc(100% - 36px)}.filter-button{left:18px;top:40px}.map-caption{left:18px;bottom:19px;font-size:11px}.interaction-hint,.caption-divider{display:none}.camera-controls{right:12px;bottom:9px;gap:0}.camera-controls .icon-button{min-width:32px;padding:6px}.timeline{display:grid;grid-template-columns:28px minmax(0,1fr) auto auto;grid-template-rows:43px 25px;gap:0 10px;padding:6px 16px 9px}.commit-summary{width:auto;grid-column:2 / 5;grid-row:1}.commit-summary a{font-size:11px}.play-button{grid-column:1;grid-row:1;padding:4px;min-width:28px}#history{grid-column:1 / 3;grid-row:2;width:100%;margin:0}.history-position{grid-column:3;grid-row:2;font-size:11px}.timeline>.text-button{grid-column:4;grid-row:2;font-size:11px;min-height:28px;padding:5px}.notice{top:48px}.drawer,.settings-panel{right:10px;top:10px;max-width:calc(100% - 20px)}.branch{max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 
+/* Restore the original cyan/gold/acid hologram palette without restoring its dashboard panels. */
+:root{--bg:#030709;--surface:#061218;--line:#16434c;--text:#e2f8ff;--muted:#91bdca;--cyan:#00f0ff;--green:#39ff14;--gold:#ffb800}
+body[data-theme=jarvis]{--cyan:#00e5ff;--green:#38bdf8;--gold:#ffcc00}
+body[data-theme=muthur]{--cyan:#39ff14;--green:#00ff88;--gold:#ff9900}
+#workspace{background:radial-gradient(ellipse at 50% 49%,#08202b 0%,#030709 76%)}
+#workspace:before{opacity:.18;background-position:center}
+.brand{color:var(--cyan);text-shadow:0 0 12px #00f0ff35}.brand-divider{color:var(--gold)}
+#graph{filter:none}.camera-controls{background:#030b10e6;border:1px solid #16434c}
+.tooltip{background:#041018f5;border-color:var(--cyan)}
+.map-status,.map-caption{color:#a2c6cd}

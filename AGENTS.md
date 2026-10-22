@@ -2,13 +2,13 @@
 
 ## Product contract
 
-Xeno-Stark is a GitHub Pages file visualizer. Keep the graph visible immediately and throughout the first viewport on desktop and phones. The user's priority is following project files, with a restrained Stark/Alien atmosphere.
+Xeno-Stark is a GitHub Pages file visualizer. Keep the graph visible immediately and throughout the first viewport on desktop and phones. The user's priority is following project files, inside the original immersive Tony Stark/Alien hologram.
 
 - Keep the header and history strip compact. Secondary controls belong in the existing drawers.
 - File-node clicks open that file on GitHub at the selected real commit. Provide equivalent native links in Files.
 - Show actual repository files and history. Folder connections represent hierarchy; dependency claims require measured import data.
-- Preserve stationary nodes by default, readable file names, keyboard access, and reduced-motion behavior.
-- Retain the MIT license and original artwork. Use artwork subtly behind the graph rather than as separate decorative panels.
+- Preserve the original luminous hexagonal nodes, 3D orbital clusters, gimbal rings, tendrils, and Orbital/Helix/Hive layouts. Keep readable file names, keyboard access, and reduced-motion behavior.
+- Retain the MIT license and original artwork. Use the original chamber behind the graph, while keeping unrelated dashboard panels out of the viewport.
 
 ## Structure
 
@@ -25,3 +25,4 @@ Check JavaScript syntax and generate a snapshot. In a browser, verify the graph 
 - [src/AGENTS.md](src/AGENTS.md): live map, rendering, interactions, and retained engine utilities.
 - [scripts/AGENTS.md](scripts/AGENTS.md): snapshot generation, analyzer, and publishing utilities.
 - [public/AGENTS.md](public/AGENTS.md): original artwork and generated datasets.
+

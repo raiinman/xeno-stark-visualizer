@@ -1,3 +1,4 @@
+import { layoutHologramNodes, drawHologram } from './hologram.js';
 // Xeno-Stark: a repository map, with GitHub as the source of truth.
 const $ = id => document.getElementById(id);
 const DEFAULT_REPO = 'raiinman/xeno-stark-visualizer';
@@ -6,7 +7,8 @@ const requestedRepo = new URL(location.href).searchParams.get('repo');
 const state = {
   repo: validRepo(requestedRepo || '') ? requestedRepo : DEFAULT_REPO,
   branch: 'main', commits: [], index: 0, files: [], nodes: [], trees: new Map(),
-  yaw: 0, pitch: 0.12, zoom: 1, autoRotate: false, query: '', folder: '',
+  yaw: 0.45, pitch: 0.55, zoom: 1, autoRotate: true, query: '', folder: '',
+  theme: 'fusion', layoutMode: 'orbital',
   hovered: null, playing: false, loading: false, version: 0, selection: 0,
   changed: new Set(), changedAt: 0, source: '', noticeTimer: null
 };
@@ -244,26 +246,8 @@ function buildMap() {
     parent.children.push(node);
     nodes.push(node);
   }
-  let leaf = 0;
-  const maxDepth = Math.max(2, ...nodes.map(n => n.depth));
-  function place(node) {
-    if (!node.folder) {
-      node.angle = (leaf++ / Math.max(1, files.length)) * Math.PI * 2 - Math.PI / 2;
-      node.radius = 1;
-      return node.angle;
-    }
-    const angles = node.children.map(place);
-    node.angle = angles.length ? (angles[0] + angles.at(-1)) / 2 : 0;
-    node.radius = node === root ? 0 : 0.22 + (node.depth / maxDepth) * 0.48;
-    return node.angle;
-  }
-  place(root);
-  for (const node of nodes) {
-    node.x = Math.cos(node.angle) * node.radius;
-    node.y = Math.sin(node.angle) * node.radius;
-    node.z = node === root ? 0 : Math.sin(node.angle * 3 + node.depth) * 0.12;
-  }
   state.nodes = files.length ? nodes : [];
+  layoutHologramNodes(state.nodes, state.layoutMode);
   updateMapStatus();
   renderFileList(files);
   $('clear-filter').hidden = !state.folder && !state.query;
@@ -323,126 +307,20 @@ function resize() {
   dirty = true;
 }
 
-function project(node) {
-  const x = node.x * Math.cos(state.yaw) + node.z * Math.sin(state.yaw);
-  const z = -node.x * Math.sin(state.yaw) + node.z * Math.cos(state.yaw);
-  const y = node.y * Math.cos(state.pitch) - z * Math.sin(state.pitch);
-  const depth = node.y * Math.sin(state.pitch) + z * Math.cos(state.pitch);
-  const scale = 3 / (3 + depth);
-  // More vertical space on phones keeps the map legible without horizontal scrolling.
-  const rx = Math.max(40, Math.min(width * 0.33, height * 0.37)) * state.zoom;
-  const ry = Math.max(40, Math.min(height * 0.36, width * 0.39)) * state.zoom;
-  return { node, x: width / 2 + x * rx * scale, y: height / 2 + y * ry * scale, scale, depth };
-}
-
 function draw(time) {
-  ctx.clearRect(0, 0, width, height);
-  projections = state.nodes.map(project);
-  if (!projections.length) return;
-  const byNode = new Map(projections.map(p => [p.node, p]));
-  const cx = width / 2, cy = height / 2;
-  const ring = Math.min(width * 0.3, height * 0.34) * state.zoom;
-  ctx.strokeStyle = palette.cyan;
-  ctx.globalAlpha = 0.09;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, ring * 0.48, ring * 0.48, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(cx, cy, ring * 1.24, -0.14, 0.5);
-  ctx.arc(cx, cy, ring * 1.24, Math.PI - 0.14, Math.PI + 0.5);
-  ctx.stroke();
-  for (let i = 0; i < 48; i++) {
-    const a = i / 48 * Math.PI * 2;
-    const r = ring * 0.48;
-    ctx.beginPath();
-    ctx.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
-    ctx.lineTo(cx + Math.cos(a) * (r + (i % 4 ? 3 : 7)), cy + Math.sin(a) * (r + (i % 4 ? 3 : 7)));
-    ctx.stroke();
-  }
-  const active = new Set();
-  let ancestor = state.hovered;
-  while (ancestor) { active.add(ancestor); ancestor = ancestor.parent; }
-  // Real folder links, with an organic bend in place of the old simulated import mesh.
-  for (const p of projections) {
-    if (!p.node.parent) continue;
-    const parent = byNode.get(p.node.parent);
-    const lit = active.has(p.node) || (state.hovered?.folder && p.node.path.startsWith(`${state.hovered.path}/`));
-    ctx.globalAlpha = lit ? 0.85 : 0.22;
-    ctx.strokeStyle = lit ? palette.green : palette.cyan;
-    ctx.lineWidth = lit ? 1.4 : 0.8;
-    ctx.beginPath();
-    ctx.moveTo(parent.x, parent.y);
-    const dx = p.x - parent.x, dy = p.y - parent.y;
-    ctx.bezierCurveTo(parent.x + dx * 0.4 - dy * 0.09, parent.y + dy * 0.4 + dx * 0.09,
-      parent.x + dx * 0.75, parent.y + dy * 0.75, p.x, p.y);
-    ctx.stroke();
-  }
-  const labels = [];
-  const ordered = [...projections].sort((a, b) => b.depth - a.depth);
-  for (const p of ordered) {
-    const n = p.node;
-    const hovered = n === state.hovered;
-    const changed = state.changed.has(n.path) && time - state.changedAt < 2500;
-    const color = n.folder ? palette.gold : changed ? palette.green : palette.cyan;
-    const r = !n.parent ? 19 : n.folder ? 5.5 : hovered ? 6 : 4;
-    ctx.globalAlpha = hovered ? 1 : 0.85;
-    ctx.fillStyle = color;
-    ctx.strokeStyle = color;
-    if (!n.parent) {
-      if (core.complete && core.naturalWidth) {
-        ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,19,0,Math.PI*2);ctx.clip();ctx.globalAlpha=.65;ctx.drawImage(core,p.x-19,p.y-19,38,38);ctx.restore();
-      }
-      ctx.globalAlpha = .5;
-      ctx.beginPath();ctx.arc(p.x,p.y,24,0,Math.PI*2);ctx.stroke();
-    } else {
-      ctx.beginPath();
-      if (n.folder) { ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.lineWidth=1;ctx.stroke();ctx.fillRect(p.x-1,p.y-1,2,2); }
-      else { ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill(); }
-      if (hovered || changed) {
-        ctx.globalAlpha = hovered ? 0.45 : 0.25;
-        ctx.beginPath();ctx.arc(p.x,p.y,r+5,0,Math.PI*2);ctx.stroke();
-      }
-    }
-    if (!$('labels').checked || !n.parent) continue;
-    labels.push({ ...p, r, color, hovered });
-  }
-  // Greedy label placement hides only collisions. Full paths remain in hover and the file list.
-  const occupied = [];
-  labels.sort((a,b) => Number(b.hovered)-Number(a.hovered) || Number(b.node.folder)-Number(a.node.folder));
-  for (const p of labels) {
-    const fontSize = width < 600 ? 11 : 12;
-    ctx.font = `${p.node.folder ? '500 ' : ''}${fontSize}px ui-monospace, Consolas, monospace`;
-    const maxChars = width < 600 ? 19 : 30;
-    const text = p.node.name.length > maxChars ? `${p.node.name.slice(0, maxChars - 1)}…` : p.node.name;
-    const tw = ctx.measureText(text).width;
-    const left = p.x < cx;
-    const tx = left ? p.x - p.r - 9 - tw : p.x + p.r + 9;
-    const ty = p.y - 6;
-    const box = { x: tx-2, y: ty-3, w: tw+4, h: 17 };
-    if (tx < 10 || tx + tw > width - 10 || ty < 60 || ty > height - 50) continue;
-    if (!p.hovered && occupied.some(b => box.x < b.x+b.w && box.x+box.w > b.x && box.y < b.y+b.h && box.y+box.h > b.y)) continue;
-    occupied.push(box);
-    p.labelBox = box;
-    const original = byNode.get(p.node);
-    original.labelBox = box;
-    ctx.globalAlpha = .92;
-    ctx.fillStyle = palette.bg;
-    ctx.fillRect(box.x,box.y,box.w,box.h);
-    ctx.fillStyle = p.node.folder ? palette.gold : hoveredLabelColor(p.node);
-    ctx.fillText(text,tx,p.y+4);
-  }
-  ctx.globalAlpha = 1;
+  projections = drawHologram({
+    ctx, width, height, state, core, palette, time,
+    motion: !reducedMotion.matches && !document.hidden,
+    labels: $('labels').checked
+  });
 }
-
-function hoveredLabelColor(node) { return node === state.hovered ? palette.text : palette.muted; }
 
 function frame(time) {
   const delta = Math.min(40, time - lastFrame);
   lastFrame = time;
   const moving = state.autoRotate && !state.hovered && !reducedMotion.matches && !document.hidden;
-  if (moving) { state.yaw += delta * 0.000035; dirty = true; }
-  if (state.changed.size && time - state.changedAt < 2700) dirty = true;
+  if (moving) { state.yaw += delta * 0.00013; dirty = true; }
+  if (!reducedMotion.matches && !document.hidden) dirty = true;
   if (dirty) { draw(time); dirty = false; }
   requestAnimationFrame(frame);
 }
@@ -451,7 +329,7 @@ function hitTest(x, y) {
   return [...projections].sort((a,b) => a.depth-b.depth).find(p => {
     if (!p.node.parent) return false;
     const b = p.labelBox;
-    return Math.hypot(p.x-x,p.y-y) < (p.node.folder ? 14 : 13) || (b && x>=b.x && x<=b.x+b.w && y>=b.y && y<=b.y+b.h);
+    return Math.hypot(p.x-x,p.y-y) < Math.max(13, (p.r || 5) + 4) || (b && x>=b.x && x<=b.x+b.w && y>=b.y && y<=b.y+b.h);
   })?.node;
 }
 
@@ -513,7 +391,7 @@ canvas.addEventListener('pointerleave',()=>{if (!drag) hover(null,0,0);});
 canvas.addEventListener('wheel',event=>{event.preventDefault();zoom(Math.exp(-event.deltaY*.001));},{passive:false});
 function zoom(factor) {state.zoom=Math.max(.45,Math.min(3.5,state.zoom*factor));dirty=true;}
 function setRotate(value) {state.autoRotate=value;$('rotate-button').setAttribute('aria-pressed',String(value));$('rotate-button').setAttribute('aria-label',`${value?'Stop':'Start'} automatic rotation`);dirty=true;}
-function resetCamera() {state.yaw=0;state.pitch=.12;state.zoom=1;setRotate(false);dirty=true;}
+function resetCamera() {state.yaw=.45;state.pitch=.55;state.zoom=1;setRotate(!reducedMotion.matches);dirty=true;}
 
 function panel(name, open, returnFocus = false) {
   for (const other of ['files','settings']) {
@@ -532,7 +410,8 @@ $('zoom-out').onclick=()=>zoom(1/1.18);
 $('reset-button').onclick=resetCamera;
 $('rotate-button').onclick=()=>setRotate(!state.autoRotate);
 $('labels').onchange=()=>{dirty=true;};
-$('theme').onchange=event=>{document.body.dataset.theme=event.target.value;readPalette();};
+$('theme').onchange=event=>{state.theme=event.target.value;document.body.dataset.theme=event.target.value;readPalette();};
+$('layout').onchange=event=>{state.layoutMode=event.target.value;layoutHologramNodes(state.nodes,state.layoutMode);dirty=true;};
 $('search').oninput=event=>{state.query=event.target.value.trim().toLowerCase();state.hovered=null;$('tooltip').hidden=true;buildMap();};
 $('clear-filter').onclick=()=>{state.folder='';state.query='';$('search').value='';buildMap();};
 $('repo-form').onsubmit=event=>{
