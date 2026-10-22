@@ -1,33 +1,33 @@
-# XENO-STARK // CHRONICLE Mk.85 (`raiinman/xeno-stark-visualizer`)
+# Xeno-Stark
 
-> **Tony Stark's J.A.R.V.I.S. 3D Orbital Hologram meets *Alien* Nostromo MUTHUR-6000 Bio-Mechanical Git Telemetry.**
-> 100% Clean-Room **MIT Licensed** (zero GPL-3.0 code required) • Installed with the **[`raiinman/dox`](AGENTS.md)** (`agent0ai/dox`) Self-Documenting `AGENTS.md` Hierarchy.
+[Open the visualizer](https://raiinman.github.io/xeno-stark-visualizer/)
 
-![Stark-Xeno Command Deck](public/assets/hero-command-deck.jpg)
+A quiet, full-window GitHub file map with a Stark/Alien holographic feel. The graph is the interface: file nodes open their actual GitHub pages in a new tab, folder nodes focus the map, and the bottom timeline explores real commits.
 
-## Why Xeno-Stark Beats Basic 2D Repo Visualizers
+- Drag to rotate, scroll or pinch to zoom, and use Fit view to reset.
+- Search by file name or path. The Files drawer provides ordinary, keyboard-accessible links.
+- Replay or scrub up to 40 recent commits. Links always point to the selected commit.
+- View options contains the display theme, file-name toggle, and public repository switcher. A repository can also be shared with `?repo=owner/repository`.
+- Connections represent the actual folder hierarchy, not inferred dependencies. Changed file nodes briefly highlight when history advances or a new commit arrives.
 
-| Capability | `Jany-M/repo-visualizer` | `raiinman/xeno-stark-visualizer` (Ours) |
-| :--- | :--- | :--- |
-| **License** | Restrictive **GPL-3.0** copyleft | Permissive **MIT License** (100% Clean-Room) |
-| **Visual Engine** | Flat 2D circles on plain canvas | **3D WebGL Orbital Gimbal Hologram + Biomechanical Neural Tendrils + Custom ImageGen Assets** |
-| **Spatial Topologies** | Single 2D force ring | **3 Live 3D Topologies**: Orbital Gimbal Rings, Xeno DNA Double-Helix, and Fibonacci Hive Sphere |
-| **Dependency Analysis** | Direct 1-hop `Depends on` / `Imported in` only | **Xeno-Contagion Transitive Blast-Radius Solver** (1st, 2nd, and 3rd+ degree cascade simulation) |
-| **Agent Documentation** | None | Full **[`raiinman/dox`](AGENTS.md)** self-documenting `AGENTS.md` hierarchy (`root`, `src/`, `scripts/`, `public/`) |
-| **Audio Telemetry** | Silent | **Web Audio API Synthesizer** (Stark HUD servo chimes + Nostromo MUTHUR-6000 computer clicks) |
+The page reads public GitHub data without a token and checks for updates every five minutes while visible. Each deployment also includes a real Git snapshot so the default repository remains viewable when the API is unavailable. Loading other repositories or older commit trees requires GitHub API access and is subject to its public request limits.
 
-## Quick Start
+## Run locally
 
-1. **Open Immediately (Zero Build Step Required)**:
-   Open `index.html` in any browser to explore 3 built-in multi-commit repositories (`raiinman/xeno-stark-visualizer`, `raiinman/dead-signal-valley`, and `raiinman/dox-agent-mesh`), switch between **1:ARC-XENO**, **2:J.A.R.V.I.S.**, and **3:MUTHUR-6000**, and fire live **Contagion Blast-Radius Cascades**.
+No packages or build framework are required. Use Node.js 22 or later:
 
-2. **Analyze Any Local Git Repository**:
-   ```bash
-   node scripts/analyze.mjs /path/to/your/repo --max=400
-   ```
-   Walks `git log --reverse --numstat`, resolves cross-file imports across JS/TS, Python, Go, Rust, C/C++, Java/Kotlin, Ruby, PHP, and CSS/SCSS, maps each file to its nearest owning `AGENTS.md` DOX contract, and writes `public/data/history.json`.
+```sh
+node scripts/snapshot.mjs
+```
 
-3. **Publish Directly to `github.com/raiinman`**:
-   ```bash
-   bash scripts/publish-github.sh raiinman/xeno-stark-visualizer
-   ```
+Serve the repository with a static HTTP server and open `index.html`. ES modules require HTTP rather than opening the file directly.
+
+## Publish
+
+Pushing to `main` runs `.github/workflows/pages.yml`. It creates the repository snapshot from Git, packages the site, and deploys it to GitHub Pages. Configure the repository's Pages source as **GitHub Actions**.
+
+The original analyzer (`scripts/analyze.mjs`) and engine experiments remain available as development utilities; the deployed map runs from `src/app.js` and `src/styles.css`.
+
+## License
+
+MIT. See [LICENSE](LICENSE) and [DOX-LICENSE.txt](DOX-LICENSE.txt).
