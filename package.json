@@ -1,0 +1,16 @@
+{
+  "name": "@raiinman/xeno-stark-visualizer",
+  "version": "1.0.0",
+  "description": "Clean-room MIT 3D Bio-Holographic Codebase Timeline & Contagion Blast-Radius Visualizer (Tony Stark HUD meets Alien Nostromo) with DOX AGENTS.md hierarchy.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Michael (raiinman) / Dead Signal Interactive",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/raiinman/xeno-stark-visualizer.git"
+  },
+  "scripts": {
+    "analyze": "node scripts/analyze.mjs",
+    "publish:github": "bash scripts/publish-github.sh"
+  }
+}

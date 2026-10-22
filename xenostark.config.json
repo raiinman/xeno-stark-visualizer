@@ -1,0 +1,12 @@
+{
+  "theme": "fusion",
+  "layout": "orbital",
+  "doxEnabled": true,
+  "exclude": [
+    "node_modules/**",
+    "dist/**",
+    "build/**",
+    ".git/**",
+    "*.min.js"
+  ]
+}
