@@ -41,7 +41,7 @@ The selected repository, visual theme, and graph topology are remembered in this
 
 Camera angle, zoom, and orbit state also return on reload. Visual lenses change the instruments, file glyphs, connections, and chamber treatment: ARC-XENO fusion, J.A.R.V.I.S. tactical, and MUTHUR bioscan. Orbital sectors, a double helix, and spherical hive cells each have a distinct structure. A live preview beside the selectors shows the selected combination.
 
-The original ARC-XENO hologram is the default again. ARC-XENO enhanced remains available. J.A.R.V.I.S. and MUTHUR use the original hex cores, gimbals, and tendrils with gold/cyan and acid-green palettes. Every repository remembers its own lens, topology, zoom, camera angle, and rotation state, independently of other projects and alongside its saved file panes.
+ARC-XENO fusion is the default, with the distinct J.A.R.V.I.S. tactical and MUTHUR bioscan lenses restored. Every repository remembers its own lens, topology, zoom, camera angle, rotation state, graph folder, page, and search, independently of other projects and alongside its saved file panes. Refresh or switch projects to resume the same graph view. Removed folders fall back to the closest surviving ancestor, and pages clamp to the available range.
 
 Large repositories open as folder clusters with actual file counts. The graph never displays more than 80 nodes at once, including the root. Click a folder to drill down, use Up one folder to return, and page through large folders. All tracked files remain available through search and the batched file browsers; the display cap does not delete or truncate repository data.
 

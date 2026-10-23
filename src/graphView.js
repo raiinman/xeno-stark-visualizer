@@ -1,5 +1,16 @@
 // Bound rendering work without dropping files from the repository or search.
 export const GRAPH_NODE_LIMIT = 80;
+export function sanitizeNavigation(saved = {}) {
+  let folder = typeof saved?.folder === 'string' ? saved.folder : '';
+  if (folder.length > 2000 || folder && folder.split('/').some(part=>!part || part==='.' || part==='..')) folder = '';
+  return {folder,page:Number.isSafeInteger(saved?.page) && saved.page >= 0 ? saved.page : 0,query:typeof saved?.query === 'string' ? saved.query.slice(0,500).trim().toLowerCase() : ''};
+}
+export function reconcileNavigation(saved,files) {
+  const navigation = sanitizeNavigation(saved), original = navigation.folder;
+  while(navigation.folder && !files.some(file=>file.path.startsWith(navigation.folder+'/'))) navigation.folder = navigation.folder.split('/').slice(0,-1).join('/');
+  if (navigation.folder !== original) navigation.page = 0;
+  return navigation;
+}
 export function buildGraphView(files, { folder = '', name = 'Repository', page = 0 } = {}) {
   const root = { path: folder, name: folder ? folder.split('/').at(-1) + '/' : name, folder: true, children: [], depth: 0, x: 0, y: 0, z: 0 };
   const folders = new Map([[folder, root]]), nodes = [root];

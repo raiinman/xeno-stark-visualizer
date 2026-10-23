@@ -1,6 +1,5 @@
 // The original Stark/Xeno graph's 3D layouts, perspective, and tactical drawing language.
 // Data and file navigation remain in app.js. All coordinates below are world-space.
-import { drawHologram as drawClassicHologram } from './hologramClassic.js';
 const TAU = Math.PI * 2;
 const FUSION = ['#ffb800', '#00f0ff', '#39ff14', '#38bdf8', '#b481ff', '#ff637c'];
 
@@ -66,7 +65,6 @@ function colorFor(node, theme) {
 }
 
 export function drawHologram({ctx, width, height, state, core, palette, time, motion, labels}) {
-  if (state.theme !== 'fusion') return drawClassicHologram({ctx,width,height,state:{...state,theme:state.theme === 'classic' ? 'fusion' : state.theme},core,palette,time,motion,labels});
   ctx.clearRect(0, 0, width, height);
   if (!state.nodes.length) return [];
   const theme = state.theme || 'fusion';

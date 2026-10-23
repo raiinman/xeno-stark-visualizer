@@ -1,10 +1,10 @@
 import { layoutHologramNodes, drawHologram } from './hologram.js';
 import { createFilePreview } from './filePreview.js';
 import { createRepositoryExplorer } from './repositoryExplorer.js';
-import { buildGraphView, GRAPH_NODE_LIMIT } from './graphView.js';
+import { buildGraphView, GRAPH_NODE_LIMIT, sanitizeNavigation, reconcileNavigation } from './graphView.js';
 // A cached pre-preview shell can meet newer scripts during a Pages rollout.
 // Migrate it once to a fresh shell, preserving the chosen repository query.
-if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('file-dock') || !document.getElementById('graph-navigation') || !document.getElementById('repository-explorer') || !document.getElementById('layout') || !document.querySelector('#theme option[value="classic"]')) {
+if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('file-dock') || !document.getElementById('graph-navigation') || !document.getElementById('repository-explorer') || !document.getElementById('layout') || !document.querySelector('#theme option[value="fusion"]') || document.querySelector('#theme option[value="classic"]')) {
   const fresh = new URL(location.href);
   const version = new URL(import.meta.url).searchParams.get('v') || 'command-deck-3';
   if (fresh.searchParams.get('_ui') !== version) {
@@ -32,19 +32,20 @@ function readRepoWorkspace(repo) {
   if (repoWorkspaces.has(repo.toLowerCase())) return repoWorkspaces.get(repo.toLowerCase());
   try { const saved = JSON.parse(localStorage.getItem(repoWorkspaceKey(repo)));if (saved?.version === 2) return saved; } catch { /* Optional browser storage. */ }
   // Migrate the former global workspace only to the repository that owned it.
-  if (savedWorkspace.version === 1 && validRepo(savedWorkspace.repo) && savedWorkspace.repo.toLowerCase() === repo.toLowerCase()) return {...savedWorkspace,theme:savedWorkspace.theme === 'fusion' ? 'classic' : savedWorkspace.theme};
+  if (savedWorkspace.version === 1 && validRepo(savedWorkspace.repo) && savedWorkspace.repo.toLowerCase() === repo.toLowerCase()) return savedWorkspace;
   return {};
 }
 const initialWorkspace = readRepoWorkspace(initialRepo), camera = initialWorkspace.camera || {};
+const initialNavigation = sanitizeNavigation(initialWorkspace.navigation);
 const finiteCamera = (value, fallback, low, high) => Number.isFinite(value) ? Math.max(low, Math.min(high, value)) : fallback;
 const state = {
   repo: initialRepo,
   branch: 'main', commits: [], index: 0, files: [], nodes: [], trees: new Map(),
   yaw: finiteCamera(camera.yaw, .45, -Math.PI * 2, Math.PI * 2), pitch: finiteCamera(camera.pitch, .55, -.9, .9),
-  zoom: finiteCamera(camera.zoom, 1, .45, 3.5), autoRotate: typeof camera.autoRotate === 'boolean' ? camera.autoRotate : true, query: '', folder: '',
-  theme: ['classic','fusion','jarvis','muthur'].includes(initialWorkspace.theme) ? initialWorkspace.theme : 'classic',
+  zoom: finiteCamera(camera.zoom, 1, .45, 3.5), autoRotate: typeof camera.autoRotate === 'boolean' ? camera.autoRotate : true, query: initialNavigation.query, folder: initialNavigation.folder,
+  theme: ['fusion','jarvis','muthur'].includes(initialWorkspace.theme) ? initialWorkspace.theme : 'fusion',
   layoutMode: ['orbital','helix','hive'].includes(initialWorkspace.layoutMode) ? initialWorkspace.layoutMode : 'orbital', previewPath: null, previewTarget: null,
-  graphPage: 0, graphView: null, fileListLimit: 100,
+  graphPage: initialNavigation.page, restoringNavigation: true, graphView: null, fileListLimit: 100,
   hovered: null, playing: false, loading: false, version: 0, selection: 0,
   changed: new Set(), changedAt: 0, source: '', noticeTimer: null
 };
@@ -88,7 +89,8 @@ function drawDeckPreview(time) {
 function saveWorkspace() {
   clearTimeout(cameraSaveTimer);cameraDirty = false;
   const camera = { yaw: state.yaw % (Math.PI * 2), pitch: state.pitch, zoom: state.zoom, autoRotate: state.autoRotate };
-  const saved = {version:2,theme:state.theme,layoutMode:state.layoutMode,camera};
+  const navigation = sanitizeNavigation({folder:state.folder,page:state.graphPage,query:state.query});
+  const saved = {version:2,theme:state.theme,layoutMode:state.layoutMode,camera,navigation};
   repoWorkspaces.set(state.repo.toLowerCase(),saved);
   try {
     localStorage.setItem(repoWorkspaceKey(state.repo), JSON.stringify(saved));
@@ -98,9 +100,11 @@ function saveWorkspace() {
 }
 function restoreRepoWorkspace(repo) {
   const saved = readRepoWorkspace(repo), camera = saved.camera || {};
-  state.theme = ['classic','fusion','jarvis','muthur'].includes(saved.theme) ? saved.theme : 'classic';
+  state.theme = ['fusion','jarvis','muthur'].includes(saved.theme) ? saved.theme : 'fusion';
   state.layoutMode = ['orbital','helix','hive'].includes(saved.layoutMode) ? saved.layoutMode : 'orbital';
   state.yaw = finiteCamera(camera.yaw,.45,-Math.PI*2,Math.PI*2);state.pitch = finiteCamera(camera.pitch,.55,-.9,.9);state.zoom = finiteCamera(camera.zoom,1,.45,3.5);
+  const navigation = sanitizeNavigation(saved.navigation);
+  state.folder = navigation.folder;state.graphPage = navigation.page;state.query = navigation.query;
   document.body.dataset.theme = state.theme;$('theme').value = state.theme;$('layout').value = state.layoutMode;
   setRotate((typeof camera.autoRotate === 'boolean' ? camera.autoRotate : true) && !reducedMotion.matches);
   readPalette();
@@ -205,6 +209,8 @@ async function showCommit(index, { animate = true } = {}) {
     state.changed = new Set(animate ? files.filter(f => previous.get(f.path) !== f.sha).map(f => f.path) : []);
     state.changedAt = performance.now();
     state.files = files;
+    const navigation = reconcileNavigation({folder:state.folder,page:state.graphPage,query:state.query},files);
+    state.folder = navigation.folder;state.graphPage = navigation.page;state.query = navigation.query;state.restoringNavigation = false;
     state.index = clamped;
     state.hovered = null;
     $('tooltip').hidden = true;
@@ -292,13 +298,11 @@ async function loadRepository(repo) {
   state.files = [];
   state.repositoryInfo = null;
   state.trees.clear();
-  state.query = '';
-  state.folder = '';
-  state.graphPage = 0;
+  state.restoringNavigation = true;
   state.index = 0;
   state.hovered = null;
   $('tooltip').hidden = true;
-  $('search').value = '';
+  $('search').value = state.query;
   $('empty-state').hidden = true;
   $('retry-button').hidden = false;
   notice('');
@@ -340,7 +344,8 @@ function matchingFiles() {
 function buildMap() {
   const files = matchingFiles();
   state.graphView = buildGraphView(files,{folder:state.folder,name:state.repo.split('/')[1],page:state.graphPage});
-  state.graphPage = state.graphView.page;state.nodes = state.graphView.nodes;
+  if (!state.restoringNavigation) state.graphPage = state.graphView.page;
+  state.nodes = state.graphView.nodes;
   canvas.dataset.nodeCount = state.nodes.length;canvas.dataset.nodeLimit = GRAPH_NODE_LIMIT;
   layoutHologramNodes(state.nodes, state.layoutMode);
   updateMapStatus();
@@ -360,6 +365,7 @@ function buildMap() {
   } else $('retry-button').hidden = false;
   dirty = true;
   explorer.update();
+  if (!state.restoringNavigation) saveCameraSoon();
 }
 
 function updateMapStatus() {

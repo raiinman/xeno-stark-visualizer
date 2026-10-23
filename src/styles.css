@@ -57,11 +57,11 @@ body[data-theme=muthur]{--cyan:#39ff14;--green:#00ff88;--gold:#ff9900}
 body{display:block;height:auto;min-height:100dvh;overflow-x:hidden;overflow-y:auto}
 .visualizer-shell{height:84vh;height:84dvh;min-height:420px;display:grid;grid-template-rows:70px minmax(0,1fr) 72px}
 .holo-page{position:absolute}.no-chamber #workspace:before{opacity:0}
-body[data-theme=jarvis] #workspace{background:radial-gradient(ellipse at center,#08202b,#030709 80%)}
-body[data-theme=jarvis] #workspace:before{opacity:.18;filter:saturate(.9)}
+body[data-theme=jarvis] #workspace{background:radial-gradient(ellipse at center,#062a49,#020713 80%)}
+body[data-theme=jarvis] #workspace:before{opacity:.055;filter:grayscale(1) hue-rotate(160deg)}
 body[data-theme=jarvis] .holo-page{background:linear-gradient(125deg,#052e4bf5,#020d1bf7);border-color:#50dfff}
 body[data-theme=muthur] #workspace{background:radial-gradient(ellipse at center,#14250b,#010700 80%)}
-body[data-theme=muthur] #workspace:before{opacity:.18;filter:sepia(.3) hue-rotate(30deg)}
+body[data-theme=muthur] #workspace:before{opacity:.26;filter:sepia(1) hue-rotate(45deg) saturate(1.8)}
 body[data-theme=muthur] .holo-page{background:linear-gradient(125deg,#102807f5,#020b03f7);border-color:#7dff35}
 body.no-chamber #workspace:before{opacity:0}
 .graph-navigation{position:absolute;top:74px;left:24px;right:24px;display:flex;align-items:center;gap:8px;z-index:3;pointer-events:none;font:11px/1.5 ui-monospace,Consolas,monospace;color:var(--muted)}.graph-navigation button{pointer-events:auto;background:#04151deb;border:1px solid var(--line);padding:5px 8px;min-height:30px}.graph-navigation #graph-scope{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50%;background:#030b10d9;padding:4px 6px}.graph-navigation #graph-page{white-space:nowrap}.graph-navigation #graph-up{white-space:nowrap}

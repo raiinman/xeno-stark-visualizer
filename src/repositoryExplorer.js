@@ -6,7 +6,7 @@ export function createRepositoryExplorer({ getContext, onRepository, onCommit, o
     <div class="deck-toolbar">
       <form id="deck-repo-form"><label for="deck-repo-input">GitHub repository</label><div class="deck-input-row"><input id="deck-repo-input" placeholder="owner/repository" required><button type="submit" class="text-button">Load repo</button></div></form>
       <label class="deck-repos">Recent public repositories<select id="deck-repo-select"><option value="">Loading repositories…</option></select></label>
-      <label>Visual lens<select id="deck-theme"><option value="classic">Original ARC-XENO (default)</option><option value="fusion">ARC-XENO enhanced</option><option value="jarvis">J.A.R.V.I.S. gold/cyan</option><option value="muthur">MUTHUR acid hive</option></select></label>
+      <label>Visual lens<select id="deck-theme"><option value="fusion">ARC-XENO</option><option value="jarvis">J.A.R.V.I.S.</option><option value="muthur">MUTHUR-6000</option></select></label>
       <label>3D topology<select id="deck-layout"><option value="orbital">Orbital rings</option><option value="helix">Double helix</option><option value="hive">Hive cells</option></select></label>
     </div>
     <div class="deck-lens-preview"><canvas id="deck-preview" aria-label="Live preview of the selected visual lens and topology"></canvas><div><h2 id="deck-lens-name"></h2><p id="deck-lens-description"></p><h3 id="deck-topology-name"></h3><p id="deck-topology-description"></p><a href="#hologram" class="text-button">View in hologram ↑</a></div></div>
@@ -151,10 +151,9 @@ export function createRepositoryExplorer({ getContext, onRepository, onCommit, o
     $('deck-github').href = `https://github.com/${c.repo}`;
     $('deck-theme').value = c.theme;$('deck-layout').value = c.layoutMode;
     const lenses = {
-      classic: ['Original ARC-XENO', 'The original Tony Stark × Alien hologram. Cyan, gold and acid accents, luminous hex cores, crossing gimbals and flowing tendrils.'],
       fusion: ['ARC-XENO fusion', 'Arc machinery meets alien biology. Multicolor folder signatures, luminous hex cores, crossing gimbals and flowing plasma tendrils.'],
-      jarvis: ['J.A.R.V.I.S. gold/cyan', 'The same holographic machinery with Stark gold and cyan optics. Hexagonal file cores, illuminated gimbals and energy flowing along the real folder links.'],
-      muthur: ['MUTHUR acid hive', 'The original alien hologram in acid green and amber. Hexagonal cores, layered containment rings and organic tendrils retain the same visual language.']
+      jarvis: ['J.A.R.V.I.S. tactical', 'Precision blue optics. Angular file glyphs, direct circuit connections, a calibrated grid and concentric targeting instruments.'],
+      muthur: ['MUTHUR-6000 bioscan', 'Organic green phosphor. Living spore nodes, curved vascular links, radar sweeps and a pulsing containment field.']
     };
     const topologies = {
       orbital: ['Orbital sectors', 'Each folder owns a satellite cluster around the central repository. Rings map its orbital planes.'],

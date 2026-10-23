@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildGraphView,GRAPH_NODE_LIMIT} from './graphView.js';
+import {buildGraphView,GRAPH_NODE_LIMIT,sanitizeNavigation,reconcileNavigation} from './graphView.js';
 import {layoutHologramNodes} from './hologram.js';
 
 test('small maps retain complete real hierarchy',()=>{
@@ -44,4 +44,16 @@ test('deep paths cannot evade the cap through their ancestor folders',()=>{
   assert.ok(view.grouped);assert.ok(view.nodes.length<=GRAPH_NODE_LIMIT);
   assert.equal(view.nodes[1].fileCount,1);
   assert.deepEqual(buildGraphView([]).nodes,[]);
+});
+test('saved navigation validates folder, page, and search without rejecting real folder names',()=>{
+  assert.deepEqual(sanitizeNavigation({folder:'skills/3d-and-web',page:3,query:'  Skill.MD '}),{folder:'skills/3d-and-web',page:3,query:'skill.md'});
+  for(const folder of ['../outside','/absolute','src//nested','src/./nested',[],null]) assert.equal(sanitizeNavigation({folder}).folder,'');
+  for(const page of [-1,NaN,Infinity,1.5,'2']) assert.equal(sanitizeNavigation({page}).page,0);
+  assert.deepEqual(sanitizeNavigation(null),{folder:'',page:0,query:''});
+});
+test('removed folders restore to the nearest surviving ancestor and reset the page',()=>{
+  const files=[{path:'src/remaining/file.js'}];
+  assert.deepEqual(reconcileNavigation({folder:'src/deleted/nested',page:3,query:'file'},files),{folder:'src',page:0,query:'file'});
+  assert.deepEqual(reconcileNavigation({folder:'src/remaining',page:3},files),{folder:'src/remaining',page:3,query:''});
+  assert.deepEqual(reconcileNavigation({folder:'gone',page:2},files),{folder:'',page:0,query:''});
 });
