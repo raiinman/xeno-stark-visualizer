@@ -37,6 +37,10 @@
       <button id="zoom-in" class="icon-button" aria-label="Zoom in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
       <button id="zoom-out" class="icon-button" aria-label="Zoom out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
     </nav>
+    <aside id="changes-panel" class="drawer" aria-label="Files changed between views" hidden>
+      <div class="panel-heading"><h2>What changed</h2><button id="close-changes" class="text-button" aria-label="Close changes">Close</button></div>
+      <p id="changes-context" class="panel-note"></p><div id="changes-list"></div>
+    </aside>
     <aside id="files-panel" class="drawer" aria-label="Repository files" hidden>
       <div class="panel-heading"><h2>Files</h2><button id="close-files" class="icon-button" aria-label="Close file list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
       <p class="panel-note">Select a file to summon its holographic preview.</p><div id="file-list" class="file-list"></div>
@@ -76,6 +80,7 @@
     <div class="commit-summary"><a id="commit-link" target="_blank" rel="noopener noreferrer">Connecting to GitHub…</a><span id="commit-meta">Actual files. Actual history.</span></div>
     <input id="history" type="range" min="0" max="0" value="0" aria-label="Commit history" disabled>
     <label class="playback-speed">Speed <select id="playback-speed" aria-label="Playback speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label>
+    <button id="changes-button" class="changes-button" aria-controls="changes-panel" aria-expanded="false">Starting view</button>
     <span id="history-position" class="history-position"></span>
     <button id="latest-button" class="text-button" disabled>Latest</button>
   </footer>

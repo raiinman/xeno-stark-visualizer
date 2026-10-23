@@ -1,3 +1,4 @@
+import { compareTrees, changeMarkers } from './changes.js';
 import { layoutHologramNodes, drawHologram, nodePose } from './hologram.js';
 import { createFilePreview } from './filePreview.js';
 import { createRepositoryExplorer } from './repositoryExplorer.js';
@@ -6,7 +7,7 @@ import { readCachedView, cacheSelectedView } from './viewCache.js';
 import { createWalkthrough } from './walkthrough.js';
 // A cached pre-preview shell can meet newer scripts during a Pages rollout.
 // Migrate it once to a fresh shell, preserving the chosen repository query.
-if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('file-dock') || !document.getElementById('playback-speed') || !document.getElementById('help-button') || !document.getElementById('walkthrough') || !document.getElementById('graph-title') || !document.getElementById('graph-detail') || !document.getElementById('graph-navigation') || !document.getElementById('repository-explorer') || !document.getElementById('layout') || !document.querySelector('#theme option[value="fusion"]') || document.querySelector('#theme option[value="classic"]')) {
+if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('file-dock') || !document.getElementById('changes-button') || !document.getElementById('playback-speed') || !document.getElementById('help-button') || !document.getElementById('walkthrough') || !document.getElementById('graph-title') || !document.getElementById('graph-detail') || !document.getElementById('graph-navigation') || !document.getElementById('repository-explorer') || !document.getElementById('layout') || !document.querySelector('#theme option[value="fusion"]') || document.querySelector('#theme option[value="classic"]')) {
   const fresh = new URL(location.href);
   const version = new URL(import.meta.url).searchParams.get('v') || 'command-deck-3';
   if (fresh.searchParams.get('_ui') !== version) {
@@ -53,6 +54,7 @@ const state = {
   graphPage: initialNavigation.page, restoringNavigation: true, graphView: null, fileListLimit: 100,
   playbackSpeed: [0.25,0.5,1,2].includes(initialWorkspace.playbackSpeed)?initialWorkspace.playbackSpeed:1,
   hovered: null, playing: false, loading: false, version: 0, selection: 0,
+  changes:{added:[],changed:[],removed:[]},changeMarkers:new Map(),comparison:'Starting view, no earlier view to compare.',
   changed: new Set(), changedAt: 0, source: '', noticeTimer: null
 };
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -216,8 +218,12 @@ async function showCommit(index, { animate = true } = {}) {
     const files = await getTree(commit);
     if (version !== state.version || selection !== state.selection) return;
     if (filePreview.isOpen) filePreview.close();
-    const previous = new Map(state.files.map(f => [f.path, f.sha]));
-    state.changed = new Set(animate ? files.filter(f => previous.get(f.path) !== f.sha).map(f => f.path) : []);
+    const baseline=!animate || state.index<0 || (state.playing && clamped===0);
+    state.changes=baseline?{added:[],changed:[],removed:[]}:compareTrees(state.files,files);
+    state.changeMarkers=changeMarkers(state.changes);
+    state.comparison=baseline?'Starting view. Changes appear as history advances.':`Compared with the previously displayed version ${state.selectedCommitSha?.slice(0,7)} → ${commit.sha.slice(0,7)}. Counts cover the entire repository. Renames appear as removed and added.`;
+    state.changed=new Set(state.changes.changed.map(f=>f.path));
+    renderChanges(baseline);
     state.changedAt = performance.now();
 
     state.files = files;
@@ -311,6 +317,7 @@ async function refresh({ first = false } = {}) {
 }
 
 async function loadRepository(repo) {
+  closeChanges();
   if (state.repo.toLowerCase() !== repo.toLowerCase()) {
     saveWorkspace();state.repo = repo;restoreRepoWorkspace(repo);
   }
@@ -325,6 +332,7 @@ async function loadRepository(repo) {
   state.index = -1;
   updateHistory();
   state.files = [];
+  state.changes={added:[],changed:[],removed:[]};state.changeMarkers=new Map();state.comparison="Loading repository…";renderChanges(true);
   state.repositoryInfo = null;
   state.trees.clear();
   state.restoringNavigation = true;
@@ -604,6 +612,31 @@ $('refresh-button').onclick=()=>{notice('Checking GitHub…');refresh({first:tru
 $('retry-button').onclick=()=>loadRepository(state.repo);
 $('history').oninput=event=>{stopPlayback();showCommit(Number(event.target.value));};
 $('latest-button').onclick=()=>{stopPlayback();showCommit(state.commits.length-1);};
+function closeChanges(){ $('changes-panel').hidden=true;$('changes-button').setAttribute('aria-expanded','false'); }
+function renderChanges(baseline=false){
+  const {added,changed,removed}=state.changes;
+  $('changes-button').textContent=baseline?'Starting view · Watch changes as history plays':`+ ${added.length} added   ·   ~ ${changed.length} changed   ·   − ${removed.length} removed   ·   View files`;
+  $('changes-context').textContent=state.comparison;
+  const list=$('changes-list');list.replaceChildren();
+  const rows=[...added.map(file=>({kind:'Added',file})),...changed.map(file=>({kind:'Changed',file})),...removed.map(file=>({kind:'Removed',file}))];
+  let shown=0;
+  function more(){
+    list.querySelector('.changes-more')?.remove();
+    for(const {kind,file} of rows.slice(shown,shown+100)){
+      const row=document.createElement(kind==='Removed'?'div':'button');row.className='change-row';
+      const badge=document.createElement('strong');badge.textContent=kind;const path=document.createElement('span');path.textContent=file.path;row.append(badge,path);
+      if(kind!=='Removed')row.onclick=()=>{closeChanges();openFile(file);};
+      list.append(row);
+    }
+    shown+=100;
+    if(shown<rows.length){const button=document.createElement('button');button.className='changes-more text-button';button.textContent=`Show more (${rows.length-shown} remaining)`;button.onclick=more;list.append(button);}
+  }
+  more();
+  if(!rows.length){const empty=document.createElement('p');empty.className='panel-note';empty.textContent=baseline?'This is the baseline for this playback.':'No file changes between these two views.';list.append(empty);}
+}
+$('changes-button').onclick=()=>{if(!$('changes-panel').hidden){closeChanges();return;}stopPlayback();$('changes-panel').hidden=false;$('changes-button').setAttribute('aria-expanded','true');$('close-changes').focus({preventScroll:true});};
+$('close-changes').onclick=()=>{closeChanges();$('changes-button').focus({preventScroll:true});};
+window.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('changes-panel').hidden){event.preventDefault();event.stopImmediatePropagation();closeChanges();$('changes-button').focus({preventScroll:true});}},true);
 function openFile(file){stopPlayback();filePreview.open(file);}
 function stopPlayback(){state.selection++;playbackRun++;clearTimeout(playTimer);playbackStep=null;state.playing=false;$('play-button').setAttribute('aria-label','Play recent commit history');$('play-button').innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg>';}
 async function startPlayback(fromStart=false){

@@ -219,7 +219,12 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
         const p=project(old),color=colorFor(old.node,theme);
         ctx.save();ctx.globalAlpha=(1-progress)*(1-progress);ctx.strokeStyle=color;ctx.fillStyle=color;ctx.shadowColor=color;ctx.shadowBlur=12;
         ctx.beginPath();ctx.arc(p.x,p.y,7+progress*20,0,TAU);ctx.stroke();
-        ctx.beginPath();ctx.arc(p.x,p.y,Math.max(.1,5*(1-progress)),0,TAU);ctx.fill();ctx.restore();
+        ctx.beginPath();ctx.arc(p.x,p.y,Math.max(.1,5*(1-progress)),0,TAU);ctx.fill();
+        if(labels && state.changeMarkers?.get(path)==='− Removed'){
+          ctx.font='11px ui-monospace,Consolas,monospace';const label='− Removed: '+old.node.name;const w=ctx.measureText(label).width;
+          ctx.fillStyle='#03090d';ctx.fillRect(p.x+10,p.y-10,w+6,18);ctx.fillStyle=color;ctx.fillText(label,p.x+13,p.y+3);
+        }
+        ctx.restore();
       }
     }
   }
@@ -228,7 +233,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
     const n=p.node;
     const hovered=n===state.hovered || (!n.folder && n.path===state.previewPath);
     const changed=state.changed.has(n.path)&&time-state.changedAt<2500;
-    const color=changed?acid:p.color;
+    const color=p.color;
     const size=n.folder?(n.fileCount?10:5):7.5+Math.min(4,Math.log2(1+(n.size||0)/700)*.65);
     const r=Math.max(4,size*p.scale)*(width<600?.82:1);
     p.r=r;
@@ -283,12 +288,13 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
   }
   // Keep names legible over the effects; hidden collisions remain accessible in Files.
   const occupied=[];
-  labelCandidates.sort((a,b)=>Number(b.hovered)-Number(a.hovered)||Number(b.node.folder)-Number(a.node.folder)||a.depth-b.depth);
+  labelCandidates.sort((a,b)=>Number(b.hovered)-Number(a.hovered)||Number(state.changeMarkers?.has(b.node.path))-Number(state.changeMarkers?.has(a.node.path))||Number(b.node.folder)-Number(a.node.folder)||a.depth-b.depth);
   for(const p of labelCandidates){
     const size=width<600?11:12;
     ctx.font=`${p.hovered?'600 ':'500 '}${size}px ui-monospace,Consolas,monospace`;
     const max=width<600?19:30;
-    const suffix=p.node.fileCount?' · '+p.node.fileCount.toLocaleString():'';
+    const marker=state.changeMarkers?.get(p.node.path)||'';
+    const suffix=(p.node.fileCount?' · '+p.node.fileCount.toLocaleString():'')+(marker?' '+marker:'');
     const room=Math.max(6,max-suffix.length), name=p.node.name;
     const text=(name.length>room?name.slice(0,room-1)+'…':name)+suffix;
     const tw=ctx.measureText(text).width;

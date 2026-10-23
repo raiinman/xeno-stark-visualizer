@@ -46,3 +46,6 @@ Run `node --check src/app.js` and `node --test src/graphView.test.js src/viewCac
 
 - Playback speed (0.25, 0.5, 1 or 2) is saved per repository with workspace preferences; default 1. Speed controls commit dwell time and the next transition duration. Changes while playing reschedule the pending tick.
 - History transitions preserve nodes by path and interpolate from their displayed positions with smooth easing. Only new nodes pop in; removed nodes dissolve without hit targets. Sample interrupted transitions before starting the next; never replay the full ignition for every commit. Reduced motion lands immediately.
+
+- changes.js compares complete previously displayed and next trees by path and object SHA/type/mode. Added, Changed, Removed counts describe that comparison, not an inferred parent diff. Initial views and playback wrap are baselines, not mass deletions. Renames are explicitly remove + add.
+- Preserve theme node colors. Persistent text markers identify changed files; folder markers mean changed contents. Removed visible nodes carry a Removed label while dissolving. The compact timeline summary opens a bounded, keyboard-accessible full-repository change list and pauses playback. Removed entries are not current-file links.
