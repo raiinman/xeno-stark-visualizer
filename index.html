@@ -26,6 +26,7 @@
     <canvas id="graph" tabindex="0" aria-label="Repository file graph. Drag to rotate, scroll to move down the page, Ctrl or Command plus scroll to zoom. On touch screens, swipe vertically to scroll and horizontally to rotate. Click a file to summon a holographic preview. Use the Files button for keyboard access."></canvas>
     <div class="map-status"><span class="signal" aria-hidden="true"></span><span id="map-status">Loading repository…</span><span id="branch-name" class="branch"></span></div>
     <button id="clear-filter" class="filter-button" hidden>Show all files <span aria-hidden="true">×</span></button>
+    <nav id="graph-navigation" class="graph-navigation" aria-label="Graph folder navigation" hidden><button id="graph-up" class="text-button">Up one folder ↑</button><span id="graph-scope"></span><button id="graph-prev" class="text-button" aria-label="Previous graph page">←</button><span id="graph-page"></span><button id="graph-next" class="text-button" aria-label="Next graph page">→</button></nav>
     <div id="notice" class="notice" role="status" hidden></div>
     <div id="tooltip" class="tooltip" hidden><strong id="tooltip-name"></strong><span id="tooltip-path"></span><small id="tooltip-action"></small></div>
     <div id="empty-state" class="empty-state" hidden><p id="empty-message"></p><button id="retry-button" class="text-button">Try again</button></div>
@@ -42,7 +43,7 @@
     </aside>
     <aside id="settings-panel" class="settings-panel" aria-label="View options" hidden>
       <div class="panel-heading"><h2>View options</h2><button id="close-settings" class="icon-button" aria-label="Close view options"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
-      <label class="option-row" for="theme">Display<select id="theme"><option value="fusion">Stark × Alien</option><option value="jarvis">J.A.R.V.I.S.</option><option value="muthur">MUTHUR</option></select></label>
+      <label class="option-row" for="theme">Display<select id="theme"><option value="classic">Original ARC-XENO (default)</option><option value="fusion">ARC-XENO enhanced</option><option value="jarvis">J.A.R.V.I.S. gold/cyan</option><option value="muthur">MUTHUR acid hive</option></select></label>
       <label class="option-row" for="layout">3D layout<select id="layout"><option value="orbital">Orbital rings</option><option value="helix">Double helix</option><option value="hive">Hive cells</option></select></label>
       <label class="option-row" for="labels">File names<input id="labels" type="checkbox" checked></label>
       <form id="repo-form"><label for="repo-input">Public GitHub repository</label><div class="repo-input-row"><input id="repo-input" value="raiinman/xeno-stark-visualizer" placeholder="owner/repository" required aria-label="Public GitHub repository"><button class="text-button" type="submit">Load</button></div></form>

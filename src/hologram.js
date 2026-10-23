@@ -1,13 +1,15 @@
 // The original Stark/Xeno graph's 3D layouts, perspective, and tactical drawing language.
 // Data and file navigation remain in app.js. All coordinates below are world-space.
+import { drawHologram as drawClassicHologram } from './hologramClassic.js';
 const TAU = Math.PI * 2;
 const FUSION = ['#ffb800', '#00f0ff', '#39ff14', '#38bdf8', '#b481ff', '#ff637c'];
 
 export function layoutHologramNodes(nodes, mode = 'orbital') {
-  const files = nodes.filter(n => !n.folder);
-  const clusters = [...new Set(files.map(n => n.parent.path))];
-  const groups = clusters.map(path => files.filter(n => n.parent.path === path));
+  const files = nodes.filter(n => !n.folder || n.parent && n.fileCount);
   const center = nodes.find(n => !n.parent);
+  const overview = files.some(n=>n.fileCount) || files.length > 12 && files.every(n=>n.parent === center);
+  const clusters = overview ? files.map(n=>n.path) : [...new Set(files.map(n => n.parent.path))];
+  const groups = overview ? files.map(n=>[n]) : clusters.map(path => files.filter(n => n.parent.path === path));
   if (center) Object.assign(center, { x: 0, y: 0, z: 0, cluster: 0 });
   groups.forEach((group, index) => {
     const sector = index / clusters.length * TAU;
@@ -64,6 +66,7 @@ function colorFor(node, theme) {
 }
 
 export function drawHologram({ctx, width, height, state, core, palette, time, motion, labels}) {
+  if (state.theme !== 'fusion') return drawClassicHologram({ctx,width,height,state:{...state,theme:state.theme === 'classic' ? 'fusion' : state.theme},core,palette,time,motion,labels});
   ctx.clearRect(0, 0, width, height);
   if (!state.nodes.length) return [];
   const theme = state.theme || 'fusion';
@@ -181,7 +184,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
     const hovered=n===state.hovered || (!n.folder && n.path===state.previewPath);
     const changed=state.changed.has(n.path)&&time-state.changedAt<2500;
     const color=changed?acid:p.color;
-    const size=n.folder?5:7.5+Math.min(4,Math.log2(1+(n.size||0)/700)*.65);
+    const size=n.folder?(n.fileCount?10:5):7.5+Math.min(4,Math.log2(1+(n.size||0)/700)*.65);
     const r=Math.max(4,size*p.scale)*(width<600?.82:1);
     p.r=r;
     ctx.save();
@@ -230,7 +233,8 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
     const size=width<600?11:12;
     ctx.font=`${p.hovered?'600 ':'500 '}${size}px ui-monospace,Consolas,monospace`;
     const max=width<600?19:30;
-    const text=p.node.name.length>max?p.node.name.slice(0,max-1)+'…':p.node.name;
+    const label=p.node.fileCount ? p.node.name+' · '+p.node.fileCount : p.node.name;
+    const text=label.length>max?label.slice(0,max-1)+'…':label;
     const tw=ctx.measureText(text).width;
     let tx=p.x+p.r+7;
     if(tx+tw>width-18)tx=p.x-p.r-7-tw;

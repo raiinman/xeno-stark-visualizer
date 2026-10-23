@@ -1,9 +1,10 @@
 import { layoutHologramNodes, drawHologram } from './hologram.js';
 import { createFilePreview } from './filePreview.js';
 import { createRepositoryExplorer } from './repositoryExplorer.js';
+import { buildGraphView, GRAPH_NODE_LIMIT } from './graphView.js';
 // A cached pre-preview shell can meet newer scripts during a Pages rollout.
 // Migrate it once to a fresh shell, preserving the chosen repository query.
-if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('file-dock') || !document.getElementById('repository-explorer') || !document.getElementById('layout')) {
+if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('file-dock') || !document.getElementById('graph-navigation') || !document.getElementById('repository-explorer') || !document.getElementById('layout') || !document.querySelector('#theme option[value="classic"]')) {
   const fresh = new URL(location.href);
   const version = new URL(import.meta.url).searchParams.get('v') || 'command-deck-3';
   if (fresh.searchParams.get('_ui') !== version) {
@@ -22,17 +23,28 @@ const WORKSPACE_KEY = 'xeno-stark:workspace:v1';
 let savedWorkspace = {};
 try {
   const saved = JSON.parse(localStorage.getItem(WORKSPACE_KEY));
-  if (saved?.version === 1) savedWorkspace = saved;
+  if ([1,2].includes(saved?.version)) savedWorkspace = saved;
 } catch { /* Browser storage is optional. */ }
-const camera = savedWorkspace.camera || {};
+const initialRepo = validRepo(requestedRepo || '') ? requestedRepo : validRepo(savedWorkspace.repo || '') ? savedWorkspace.repo : DEFAULT_REPO;
+const repoWorkspaces = new Map();
+const repoWorkspaceKey = repo => `xeno-stark:workspace:v2:${repo.toLowerCase()}`;
+function readRepoWorkspace(repo) {
+  if (repoWorkspaces.has(repo.toLowerCase())) return repoWorkspaces.get(repo.toLowerCase());
+  try { const saved = JSON.parse(localStorage.getItem(repoWorkspaceKey(repo)));if (saved?.version === 2) return saved; } catch { /* Optional browser storage. */ }
+  // Migrate the former global workspace only to the repository that owned it.
+  if (savedWorkspace.version === 1 && validRepo(savedWorkspace.repo) && savedWorkspace.repo.toLowerCase() === repo.toLowerCase()) return {...savedWorkspace,theme:savedWorkspace.theme === 'fusion' ? 'classic' : savedWorkspace.theme};
+  return {};
+}
+const initialWorkspace = readRepoWorkspace(initialRepo), camera = initialWorkspace.camera || {};
 const finiteCamera = (value, fallback, low, high) => Number.isFinite(value) ? Math.max(low, Math.min(high, value)) : fallback;
 const state = {
-  repo: validRepo(requestedRepo || '') ? requestedRepo : validRepo(savedWorkspace.repo || '') ? savedWorkspace.repo : DEFAULT_REPO,
+  repo: initialRepo,
   branch: 'main', commits: [], index: 0, files: [], nodes: [], trees: new Map(),
   yaw: finiteCamera(camera.yaw, .45, -Math.PI * 2, Math.PI * 2), pitch: finiteCamera(camera.pitch, .55, -.9, .9),
   zoom: finiteCamera(camera.zoom, 1, .45, 3.5), autoRotate: typeof camera.autoRotate === 'boolean' ? camera.autoRotate : true, query: '', folder: '',
-  theme: ['fusion','jarvis','muthur'].includes(savedWorkspace.theme) ? savedWorkspace.theme : 'fusion',
-  layoutMode: ['orbital','helix','hive'].includes(savedWorkspace.layoutMode) ? savedWorkspace.layoutMode : 'orbital', previewPath: null, previewTarget: null,
+  theme: ['classic','fusion','jarvis','muthur'].includes(initialWorkspace.theme) ? initialWorkspace.theme : 'classic',
+  layoutMode: ['orbital','helix','hive'].includes(initialWorkspace.layoutMode) ? initialWorkspace.layoutMode : 'orbital', previewPath: null, previewTarget: null,
+  graphPage: 0, graphView: null, fileListLimit: 100,
   hovered: null, playing: false, loading: false, version: 0, selection: 0,
   changed: new Set(), changedAt: 0, source: '', noticeTimer: null
 };
@@ -55,7 +67,7 @@ const explorer = createRepositoryExplorer({
   getContext: () => ({ repo: state.repo, branch: state.branch, files: state.files, commits: state.commits, index: state.index, info: state.repositoryInfo, theme: state.theme, layoutMode: state.layoutMode }),
   onRepository: repo => { const url = new URL(location.href);url.searchParams.set('repo',repo);history.replaceState(null,'',url);loadRepository(repo); },
   onCommit: index => { stopPlayback();showCommit(index); },
-  onFolder: path => { state.folder = path;state.query = '';$('search').value = '';buildMap();$('hologram').scrollIntoView({ block: 'start', behavior: 'instant' }); },
+  onFolder: path => { state.folder = path;state.graphPage = 0;state.query = '';$('search').value = '';buildMap();$('hologram').scrollIntoView({ block: 'start', behavior: 'instant' }); },
   onFile: file => filePreview.open(file),
   onTheme: setTheme,
   onLayout: setLayout,
@@ -76,8 +88,22 @@ function drawDeckPreview(time) {
 function saveWorkspace() {
   clearTimeout(cameraSaveTimer);cameraDirty = false;
   const camera = { yaw: state.yaw % (Math.PI * 2), pitch: state.pitch, zoom: state.zoom, autoRotate: state.autoRotate };
-  try { localStorage.setItem(WORKSPACE_KEY, JSON.stringify({ version: 1, repo: state.repo, theme: state.theme, layoutMode: state.layoutMode, camera })); }
+  const saved = {version:2,theme:state.theme,layoutMode:state.layoutMode,camera};
+  repoWorkspaces.set(state.repo.toLowerCase(),saved);
+  try {
+    localStorage.setItem(repoWorkspaceKey(state.repo), JSON.stringify(saved));
+    localStorage.setItem(WORKSPACE_KEY, JSON.stringify({version:2,repo:state.repo}));
+  }
   catch { /* Restricted or full storage must not interrupt the workspace. */ }
+}
+function restoreRepoWorkspace(repo) {
+  const saved = readRepoWorkspace(repo), camera = saved.camera || {};
+  state.theme = ['classic','fusion','jarvis','muthur'].includes(saved.theme) ? saved.theme : 'classic';
+  state.layoutMode = ['orbital','helix','hive'].includes(saved.layoutMode) ? saved.layoutMode : 'orbital';
+  state.yaw = finiteCamera(camera.yaw,.45,-Math.PI*2,Math.PI*2);state.pitch = finiteCamera(camera.pitch,.55,-.9,.9);state.zoom = finiteCamera(camera.zoom,1,.45,3.5);
+  document.body.dataset.theme = state.theme;$('theme').value = state.theme;$('layout').value = state.layoutMode;
+  setRotate((typeof camera.autoRotate === 'boolean' ? camera.autoRotate : true) && !reducedMotion.matches);
+  readPalette();
 }
 function saveCameraSoon() { cameraDirty = true;clearTimeout(cameraSaveTimer);cameraSaveTimer = setTimeout(saveWorkspace, 180); }
 window.addEventListener('pagehide', saveWorkspace);
@@ -252,6 +278,9 @@ async function refresh({ first = false } = {}) {
 }
 
 async function loadRepository(repo) {
+  if (state.repo.toLowerCase() !== repo.toLowerCase()) {
+    saveWorkspace();state.repo = repo;restoreRepoWorkspace(repo);
+  }
   filePreview.close({ preserve: true });
   stopPlayback();
   state.version++;
@@ -265,6 +294,7 @@ async function loadRepository(repo) {
   state.trees.clear();
   state.query = '';
   state.folder = '';
+  state.graphPage = 0;
   state.index = 0;
   state.hovered = null;
   $('tooltip').hidden = true;
@@ -309,29 +339,18 @@ function matchingFiles() {
 
 function buildMap() {
   const files = matchingFiles();
-  const root = { path: '', name: state.repo.split('/')[1], folder: true, children: [], depth: 0, x: 0, y: 0, z: 0 };
-  const folders = new Map([['', root]]);
-  const nodes = [root];
-  for (const f of files) {
-    const parts = f.path.split('/');
-    let parent = root;
-    for (let i = 0; i < parts.length - 1; i++) {
-      const path = parts.slice(0, i + 1).join('/');
-      if (!folders.has(path)) {
-        const folder = { path, name: `${parts[i]}/`, folder: true, children: [], parent, depth: i + 1 };
-        folders.set(path, folder);
-        parent.children.push(folder);
-        nodes.push(folder);
-      }
-      parent = folders.get(path);
-    }
-    const node = { ...f, name: parts.at(-1), parent, depth: parts.length, folder: false };
-    parent.children.push(node);
-    nodes.push(node);
-  }
-  state.nodes = files.length ? nodes : [];
+  state.graphView = buildGraphView(files,{folder:state.folder,name:state.repo.split('/')[1],page:state.graphPage});
+  state.graphPage = state.graphView.page;state.nodes = state.graphView.nodes;
+  canvas.dataset.nodeCount = state.nodes.length;canvas.dataset.nodeLimit = GRAPH_NODE_LIMIT;
   layoutHologramNodes(state.nodes, state.layoutMode);
   updateMapStatus();
+  $('graph-navigation').hidden = !state.graphView.grouped && !state.folder;
+  $('graph-scope').textContent = state.folder ? `${state.folder}/` : 'Repository overview';
+  $('graph-up').hidden = !state.folder;
+  $('graph-prev').hidden = $('graph-next').hidden = state.graphView.pages <= 1;
+  $('graph-prev').disabled = state.graphPage === 0;$('graph-next').disabled = state.graphPage >= state.graphView.pages-1;
+  $('graph-page').textContent = state.graphView.pages > 1 ? `${state.graphPage+1}/${state.graphView.pages}` : '';
+  state.fileListLimit = 100;
   renderFileList(files);
   $('clear-filter').hidden = !state.folder && !state.query;
   $('empty-state').hidden = !!files.length || !state.files.length;
@@ -345,7 +364,8 @@ function buildMap() {
 
 function updateMapStatus() {
   const count = matchingFiles().length;
-  $('map-status').textContent = state.files.length ? `${count} ${count === 1 ? 'file' : 'files'}${state.folder || state.query ? ` of ${state.files.length}` : ''} · ${state.nodes.filter(n => n.folder && n.path).length} folders` : 'Loading repository…';
+  const scope = `${count.toLocaleString()} files${state.folder || state.query ? ` of ${state.files.length.toLocaleString()}` : ''}`;
+  $('map-status').textContent = state.files.length ? `${scope} · ${state.nodes.length} nodes shown${state.graphView?.grouped ? ' · folders show file counts' : ''}` : 'Loading repository…';
 }
 
 function fileUrl(file) {
@@ -356,7 +376,7 @@ function fileUrl(file) {
 
 function renderFileList(files) {
   const fragment = document.createDocumentFragment();
-  for (const file of files) {
+  for (const file of files.slice(0,state.fileListLimit)) {
     const a = document.createElement('a');
     a.className = 'file-link';
     a.href = fileUrl(file);
@@ -370,6 +390,10 @@ function renderFileList(files) {
       filePreview.open(file);
     });
     fragment.append(a);
+  }
+  if (files.length > state.fileListLimit) {
+    const more = document.createElement('button');more.className = 'text-button';more.textContent = `Show more files (${state.fileListLimit} of ${files.length})`;
+    more.onclick = () => {state.fileListLimit += 100;renderFileList(matchingFiles());};fragment.append(more);
   }
   if (!files.length) {
     const p = document.createElement('p');
@@ -437,7 +461,7 @@ function hover(node, x, y) {
   if (!node) return;
   $('tooltip-name').textContent = node.name;
   $('tooltip-path').textContent = node.path;
-  $('tooltip-action').textContent = node.folder ? 'Click to focus this folder' : 'Click to project this file';
+  $('tooltip-action').textContent = node.folder ? `${node.fileCount ? node.fileCount.toLocaleString()+' files · ' : ''}Click to explore this folder` : 'Click to project this file';
   const box = $('tooltip').getBoundingClientRect();
   $('tooltip').style.left = `${Math.max(12,Math.min(x+18,width-box.width-12))}px`;
   $('tooltip').style.top = `${Math.max(48,Math.min(y+18,height-box.height-55))}px`;
@@ -476,7 +500,7 @@ canvas.addEventListener('pointerup',event=>{
   if (clicked) {
     const rect=canvas.getBoundingClientRect();
     const node=hitTest(event.clientX-rect.left,event.clientY-rect.top);
-    if (node?.folder) {state.folder=node.path;state.hovered=null;$('tooltip').hidden=true;buildMap();}
+    if (node?.folder) {state.folder=node.path;state.graphPage=0;state.hovered=null;$('tooltip').hidden=true;buildMap();}
     else if (node) filePreview.open(node);
   }
   if (!pointers.size) drag=null;
@@ -511,8 +535,11 @@ $('rotate-button').onclick=()=>setRotate(!state.autoRotate);
 $('labels').onchange=()=>{dirty=true;};
 $('theme').onchange=event=>setTheme(event.target.value);
 $('layout').onchange=event=>setLayout(event.target.value);
-$('search').oninput=event=>{state.query=event.target.value.trim().toLowerCase();state.hovered=null;$('tooltip').hidden=true;buildMap();};
-$('clear-filter').onclick=()=>{state.folder='';state.query='';$('search').value='';buildMap();};
+$('search').oninput=event=>{state.query=event.target.value.trim().toLowerCase();state.graphPage=0;state.hovered=null;$('tooltip').hidden=true;buildMap();};
+$('clear-filter').onclick=()=>{state.folder='';state.graphPage=0;state.query='';$('search').value='';buildMap();};
+$('graph-up').onclick=()=>{state.folder=state.folder.split('/').slice(0,-1).join('/');state.graphPage=0;buildMap();};
+$('graph-prev').onclick=()=>{state.graphPage--;buildMap();};
+$('graph-next').onclick=()=>{state.graphPage++;buildMap();};
 $('repo-form').onsubmit=event=>{
   event.preventDefault();
   let repo=$('repo-input').value.trim().replace(/^https:\/\/github\.com\//i,'').replace(/\/$/,'').replace(/\.git$/,'');
