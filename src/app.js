@@ -692,6 +692,7 @@ setRotate(state.autoRotate && !reducedMotion.matches);
 readPalette();
 resize();
 requestAnimationFrame(frame);
+window.addEventListener('walkthrough-opened',stopPlayback);
 window.addEventListener('walkthrough-dismissed',()=>{if(!state.loading && !filePreview.isOpen && !reducedMotion.matches && !document.hidden)startPlayback(true);});
 createWalkthrough();
 loadRepository(state.repo);

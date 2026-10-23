@@ -162,3 +162,12 @@ body.first-visit-open{overflow:hidden}
 .first-visit-dialog .walkthrough{position:relative;inset:auto;transform:none;width:100%;max-height:calc(100dvh - 32px);padding:32px;gap:20px;box-shadow:0 24px 80px #000b}
 .first-visit-dialog .walkthrough h2{font-size:30px}.first-visit-dialog .walkthrough p{font-size:16px;line-height:1.7}.first-visit-dialog .walkthrough .walkthrough-tip{font-size:14px}.first-visit-dialog .walkthrough>footer button{min-height:42px;padding:8px 22px}
 @media(max-width:600px){.first-visit-dialog .walkthrough{padding:20px;gap:14px}.first-visit-dialog .walkthrough h2{font-size:25px}.first-visit-dialog .walkthrough p{font-size:14px}.first-visit-dialog .walkthrough .walkthrough-tip{font-size:12px}}
+
+/* The modal blocks interaction while clear spotlight holes reveal the real controls. */
+.first-visit-dialog[open]{position:fixed;inset:0;margin:0;width:100vw;height:100dvh;max-width:none;max-height:none;overflow:hidden}
+.first-visit-dialog::backdrop{background:transparent;backdrop-filter:none}
+.walkthrough-spotlight{position:fixed;inset:0;width:100vw;height:100dvh;pointer-events:none}
+.spotlight-outline{fill:none;stroke:var(--cyan);stroke-width:2}.spotlight-arrow{fill:none;stroke:var(--gold);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.walkthrough.is-guided,.first-visit-dialog .walkthrough{position:fixed;inset:auto;width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:24px;gap:16px}
+.first-visit-dialog .walkthrough h2{font-size:25px}.first-visit-dialog .walkthrough p{font-size:15px}.first-visit-dialog .walkthrough .walkthrough-tip{font-size:13px}
+@media(max-width:600px){.walkthrough.is-guided,.first-visit-dialog .walkthrough{padding:18px;gap:12px}.first-visit-dialog .walkthrough h2{font-size:22px}.first-visit-dialog .walkthrough p{font-size:13px}.first-visit-dialog .walkthrough .walkthrough-tip{font-size:12px}}

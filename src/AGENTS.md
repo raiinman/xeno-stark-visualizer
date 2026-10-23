@@ -66,3 +66,6 @@ Run `node --check src/app.js` and `node --test src/graphView.test.js src/viewCac
 
 - First-time walkthrough is a centered native modal dialog with a dimmed backdrop, inert workspace, native focus containment and page scroll lock. Finish, Close or Escape remembers dismissal and releases the workspace. Defer automatic history playback until dismissal; returning visitors skip it, and manual replay remains nonmodal.
 - Starting/reset zoom is 1.32 (another 10% closer than 1.2). cameraFramingVersion 2 migrates previous default zoom 1 or 1.2 once, preserving other customized zoom values.
+
+- First-run help remains modal, but moves beside its current feature. A top-layer SVG mask leaves clear spotlight holes over actual graph/header/timeline controls and draws an arrow from the guide. Reposition on resize/scroll with viewport clamping and minimum overlap. Manual replay also follows its targets. Clean up positioning/highlights on dismissal.
+- The first two guide steps must cover history immediately, before folders/files: Play/Pause rebuilds the entire graph through saved versions, then slider/speed/change counts explain choosing a version, pacing and inspecting edits. Explain additions, changes, removals, folder rearrangement, looping and file contents at the selected version.
