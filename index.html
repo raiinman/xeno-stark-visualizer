@@ -23,13 +23,13 @@
     </div>
   </header>
   <main id="workspace">
-    <canvas id="graph" tabindex="0" aria-label="Repository file graph. Drag to rotate, scroll to zoom, click a file to summon a holographic preview. Use the Files button for keyboard access."></canvas>
+    <canvas id="graph" tabindex="0" aria-label="Repository file graph. Drag to rotate, scroll to move down the page, Ctrl or Command plus scroll to zoom. On touch screens, swipe vertically to scroll and horizontally to rotate. Click a file to summon a holographic preview. Use the Files button for keyboard access."></canvas>
     <div class="map-status"><span class="signal" aria-hidden="true"></span><span id="map-status">Loading repository…</span><span id="branch-name" class="branch"></span></div>
     <button id="clear-filter" class="filter-button" hidden>Show all files <span aria-hidden="true">×</span></button>
     <div id="notice" class="notice" role="status" hidden></div>
     <div id="tooltip" class="tooltip" hidden><strong id="tooltip-name"></strong><span id="tooltip-path"></span><small id="tooltip-action"></small></div>
     <div id="empty-state" class="empty-state" hidden><p id="empty-message"></p><button id="retry-button" class="text-button">Try again</button></div>
-    <div class="map-caption"><span class="legend-dot file-dot"></span>File <span class="legend-dot folder-dot"></span>Folder<span class="caption-divider"></span><span class="interaction-hint">Drag to rotate · Scroll to zoom · Click a file to project</span></div>
+    <div class="map-caption"><span class="legend-dot file-dot"></span>File <span class="legend-dot folder-dot"></span>Folder<span class="caption-divider"></span><span class="interaction-hint">Drag to rotate · Ctrl/⌘ + scroll to zoom · Scroll down to explore</span></div>
     <nav class="camera-controls" aria-label="Graph controls">
       <button id="rotate-button" class="icon-button" aria-label="Start automatic rotation" aria-pressed="false" title="Auto-rotate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 8a9 9 0 1 0 1 7M20 3v6h-6"/></svg></button>
       <button id="reset-button" class="icon-button" aria-label="Fit graph to view" title="Fit view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/></svg></button>

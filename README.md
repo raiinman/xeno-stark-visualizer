@@ -36,3 +36,5 @@ The original analyzer (`scripts/analyze.mjs`) and engine experiments remain avai
 ## License
 
 MIT. See [LICENSE](LICENSE) and [DOX-LICENSE.txt](DOX-LICENSE.txt).
+
+The selected repository, visual theme, and graph topology are remembered in this browser. Explicit repository links take priority. Scroll over the graph to reach the command deck below; use Ctrl/Command + scroll or the zoom buttons to zoom. On touch screens, swipe vertically to scroll and horizontally to rotate.

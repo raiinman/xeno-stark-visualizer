@@ -2,11 +2,12 @@
 
 ## Product contract
 
-Xeno-Stark is a GitHub Pages file visualizer. Keep the graph visible immediately and throughout the first viewport on desktop and phones. The user's priority is following project files, inside the original immersive Tony Stark/Alien hologram.
+Xeno-Stark is a GitHub Pages file visualizer. Keep the graph visible immediately and within the first viewport on desktop and phones. The user's priority is following project files, inside the original immersive Tony Stark/Alien hologram.
 
-- Keep the header and history strip compact. The restored repository command deck belongs below the visualizer, reached by scrolling or Explore, while the graph fills the first viewport.
+- Keep the header and history strip compact. The restored repository command deck belongs below the visualizer, reached by scrolling or Explore, while the graph leaves the start of the explorer visible below it.
 - File-node clicks summon a floating holographic preview of that file at the selected real commit. Files uses the same preview; Open on GitHub remains a secondary action.
 - Multiple file windows must remain open together, draggable and resizable over the graph. Wrap long lines by default and preserve side-by-side tiling and individual close controls.
+- Remember the selected repository, theme, and graph topology in browser storage. Explicit repo links override the saved selection. Ordinary wheel and vertical touch gestures scroll the page; Ctrl/Command plus wheel and zoom buttons zoom the graph.
 - Remember each repository's open windows and layout in this browser across refreshes. Closing panes updates the saved layout; restoring to a smaller viewport keeps panes reachable.
 - Minimize file panes into the small graph dock without closing or losing their geometry. Show graph minimizes all visible panes. Persist docked state with the window layout.
 - Show actual repository files and history. Folder connections represent hierarchy; dependency claims require measured import data.

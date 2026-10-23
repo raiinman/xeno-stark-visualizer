@@ -16,13 +16,20 @@ if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document
 // Xeno-Stark: a repository map, with GitHub as the source of truth.
 const $ = id => document.getElementById(id);
 const DEFAULT_REPO = 'raiinman/xeno-stark-visualizer';
-const validRepo = value => /^[\w.-]+\/[\w.-]+$/.test(value);
+const validRepo = value => typeof value === 'string' && /^[\w.-]+\/[\w.-]+$/.test(value);
 const requestedRepo = new URL(location.href).searchParams.get('repo');
+const WORKSPACE_KEY = 'xeno-stark:workspace:v1';
+let savedWorkspace = {};
+try {
+  const saved = JSON.parse(localStorage.getItem(WORKSPACE_KEY));
+  if (saved?.version === 1) savedWorkspace = saved;
+} catch { /* Browser storage is optional. */ }
 const state = {
-  repo: validRepo(requestedRepo || '') ? requestedRepo : DEFAULT_REPO,
+  repo: validRepo(requestedRepo || '') ? requestedRepo : validRepo(savedWorkspace.repo || '') ? savedWorkspace.repo : DEFAULT_REPO,
   branch: 'main', commits: [], index: 0, files: [], nodes: [], trees: new Map(),
   yaw: 0.45, pitch: 0.55, zoom: 1, autoRotate: true, query: '', folder: '',
-  theme: 'fusion', layoutMode: 'orbital', previewPath: null, previewTarget: null,
+  theme: ['fusion','jarvis','muthur'].includes(savedWorkspace.theme) ? savedWorkspace.theme : 'fusion',
+  layoutMode: ['orbital','helix','hive'].includes(savedWorkspace.layoutMode) ? savedWorkspace.layoutMode : 'orbital', previewPath: null, previewTarget: null,
   hovered: null, playing: false, loading: false, version: 0, selection: 0,
   changed: new Set(), changedAt: 0, source: '', noticeTimer: null
 };
@@ -50,8 +57,12 @@ const explorer = createRepositoryExplorer({
   onLayout: setLayout,
   onExport: exportRepository
 });
-function setTheme(theme) { state.theme = theme;document.body.dataset.theme = theme;$('theme').value = theme;readPalette();explorer.update(); }
-function setLayout(layout) { state.layoutMode = layout;$('layout').value = layout;layoutHologramNodes(state.nodes,layout);dirty = true;explorer.update(); }
+function saveWorkspace() {
+  try { localStorage.setItem(WORKSPACE_KEY, JSON.stringify({ version: 1, repo: state.repo, theme: state.theme, layoutMode: state.layoutMode })); }
+  catch { /* Restricted or full storage must not interrupt the workspace. */ }
+}
+function setTheme(theme) { state.theme = theme;document.body.dataset.theme = theme;$('theme').value = theme;readPalette();explorer.update();saveWorkspace(); }
+function setLayout(layout) { state.layoutMode = layout;$('layout').value = layout;layoutHologramNodes(state.nodes,layout);dirty = true;explorer.update();saveWorkspace(); }
 function exportRepository(kind) {
   const download = (blob, name) => { const url = URL.createObjectURL(blob);const a = document.createElement('a');a.href = url;a.download = name;a.click();setTimeout(() => URL.revokeObjectURL(url),1000); };
   if (kind === 'png') canvas.toBlob(blob => { if(blob)download(blob,'xeno-stark-hologram.png'); });
@@ -224,6 +235,7 @@ async function loadRepository(repo) {
   state.version++;
   state.selection++;
   state.repo = repo;
+  saveWorkspace();
   state.loading = false;
   state.commits = [];
   state.files = [];
@@ -449,7 +461,10 @@ canvas.addEventListener('pointerup',event=>{
 });
 canvas.addEventListener('pointercancel',()=>{pointers.clear();drag=null;});
 canvas.addEventListener('pointerleave',()=>{if (!drag) hover(null,0,0);});
-canvas.addEventListener('wheel',event=>{event.preventDefault();zoom(Math.exp(-event.deltaY*.001));},{passive:false});
+canvas.addEventListener('wheel',event=>{
+  if (!event.ctrlKey && !event.metaKey) return;
+  event.preventDefault();zoom(Math.exp(-event.deltaY*.001));
+},{passive:false});
 function zoom(factor) {state.zoom=Math.max(.45,Math.min(3.5,state.zoom*factor));dirty=true;}
 function setRotate(value) {state.autoRotate=value;$('rotate-button').setAttribute('aria-pressed',String(value));$('rotate-button').setAttribute('aria-label',`${value?'Stop':'Start'} automatic rotation`);dirty=true;}
 function resetCamera() {state.yaw=.45;state.pitch=.55;state.zoom=1;setRotate(!reducedMotion.matches);dirty=true;}
@@ -513,6 +528,9 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)stopPlaybac
 setInterval(()=>{if(!document.hidden && !state.playing)refresh();},300000);
 new ResizeObserver(resize).observe($('workspace'));
 core.onload=()=>{dirty=true;};
+document.body.dataset.theme = state.theme;
+$('theme').value = state.theme;
+$('layout').value = state.layoutMode;
 readPalette();
 resize();
 requestAnimationFrame(frame);
