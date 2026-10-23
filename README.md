@@ -6,6 +6,7 @@ The original Stark/Alien holographic graph in a full-window GitHub file map. Glo
 
 - Drag to rotate, scroll or pinch to zoom, and use Fit view to reset. The original slow automatic orbit pauses while hovering a node and respects reduced motion.
 - Click a file to project its code or image inside the visualizer. Dismiss the pane with Escape or its close control. Open on GitHub is available as a secondary action.
+- Open several files at once. Drag their title bars, resize from any edge or corner, and use Tile files to arrange them. Double-click a title bar or use its maximize control to expand/restore it. Long source lines wrap by default; each window has a Wrap toggle. Focus a title bar or the bottom-right resize grip and use arrow keys for keyboard positioning/sizing.
 - Search by file name or path. The Files drawer provides keyboard access to the same holographic previews.
 - Replay or scrub up to 40 recent commits. Previews and their GitHub links always point to the selected commit.
 - View options contains the original Orbital Rings, Xeno Helix, and Hive Sphere layouts, the three display themes, a file-name toggle, and the public repository switcher. A repository can also be shared with `?repo=owner/repository`.

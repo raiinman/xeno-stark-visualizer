@@ -2,9 +2,9 @@ import { layoutHologramNodes, drawHologram } from './hologram.js';
 import { createFilePreview } from './filePreview.js';
 // A cached pre-preview shell can meet newer scripts during a Pages rollout.
 // Migrate it once to a fresh shell, preserving the chosen repository query.
-if (!document.getElementById('file-preview') || !document.getElementById('layout')) {
+if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('layout')) {
   const fresh = new URL(location.href);
-  const version = new URL(import.meta.url).searchParams.get('v') || 'projection-1';
+  const version = new URL(import.meta.url).searchParams.get('v') || 'windows-2';
   if (fresh.searchParams.get('_ui') !== version) {
     fresh.searchParams.set('_ui', version);
     location.replace(fresh.href);
@@ -36,7 +36,8 @@ let playTimer;
 const filePreview = createFilePreview({
   getContext: () => ({ repo: state.repo, sha: state.commits[state.index]?.sha }),
   onOpen: file => { stopPlayback(); state.previewPath = file.path; hover(null, 0, 0); dirty = true; },
-  onClose: () => { state.previewPath = null; state.previewTarget = null; canvas.focus({ preventScroll: true }); dirty = true; }
+  onClose: () => { state.previewPath = null; state.previewTarget = null; canvas.focus({ preventScroll: true }); dirty = true; },
+  onGeometryChange: () => { dirty = true; }
 });
 
 function notice(message, persistent = false) {
@@ -338,7 +339,7 @@ function resize() {
 
 function draw(time) {
   if (filePreview.isOpen) {
-    const pane = $('file-preview').getBoundingClientRect();
+    const pane = filePreview.activeWindow.getBoundingClientRect();
     const graph = canvas.getBoundingClientRect();
     state.previewTarget = { x: pane.left - graph.left, y: pane.top - graph.top + 45 };
   }
@@ -470,7 +471,7 @@ $('play-button').onclick=async()=>{
   if(state.playing)playTimer=setTimeout(step,1800);
 };
 document.addEventListener('keydown',event=>{
-  if (filePreview.isOpen) return;
+  if (event.target.closest('.holo-page')) return;
   if(event.key==='Escape'){
     if(!$('files-panel').hidden)panel('files',false,true);
     else if(!$('settings-panel').hidden)panel('settings',false,true);

@@ -48,16 +48,21 @@
       <p class="panel-note">Connections show folders and their files. Updates are checked every 5 minutes while this tab is visible.</p>
       <p id="data-source" class="panel-note"></p>
     </aside>
-    <dialog id="file-preview" class="holo-page" aria-labelledby="preview-title" aria-describedby="preview-path">
-      <header class="preview-header">
+    <button id="tile-previews" class="text-button tile-previews" hidden>Tile files</button>
+    <template id="file-preview">
+    <section class="holo-page" role="dialog" aria-modal="false" open>
+      <header class="preview-header" tabindex="0" role="group">
         <svg class="preview-emblem" viewBox="0 0 32 32" aria-hidden="true"><path d="m16 2 12 7v14l-12 7-12-7V9Z"/><path d="M12 10h6l4 4v9H12Z M18 10v5h4"/></svg>
-        <div class="preview-heading"><h2 id="preview-title"></h2><p id="preview-path"></p></div>
-        <button id="preview-close" class="icon-button" aria-label="Dismiss hologram"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+        <div class="preview-heading"><h2 data-preview="title"></h2><p data-preview="path"></p></div>
+        <button data-preview="wrap" class="text-button preview-wrap" aria-label="Toggle line wrapping" aria-pressed="true">Wrap</button>
+        <button data-preview="maximize" class="icon-button" aria-label="Maximize window"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/></svg></button>
+        <button data-preview="close" class="icon-button" aria-label="Dismiss hologram"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
       </header>
-      <div class="preview-info"><span id="preview-ref"></span><span class="projection-signal">PROJECTION ACTIVE</span></div>
-      <div id="preview-content" class="preview-content" tabindex="0" aria-label="File contents"></div>
-      <footer class="preview-footer"><span id="preview-status" role="status"></span><button id="preview-retry" class="text-button" hidden>Retry</button><a id="preview-github" class="text-button" target="_blank" rel="noopener noreferrer">Open on GitHub<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a></footer>
-    </dialog>
+      <div class="preview-info"><span data-preview="ref"></span><span class="projection-signal">PROJECTION ACTIVE</span></div>
+      <div data-preview="content" class="preview-content" tabindex="0" aria-label="File contents"></div>
+      <footer class="preview-footer"><span data-preview="status" role="status"></span><button data-preview="retry" class="text-button" hidden>Retry</button><a data-preview="github" class="text-button" target="_blank" rel="noopener noreferrer">Open on GitHub<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a></footer>
+    </section>
+    </template>
   </main>
   <footer class="timeline" aria-label="Repository history">
     <button id="play-button" class="icon-button play-button" aria-label="Play recent commit history" title="Replay history"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg></button>
