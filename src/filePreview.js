@@ -224,6 +224,7 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     let controller = null, requestId = 0;
     const win = { element: pane, file, context, key, view, rect: null, restore: null, minimized: false, cancel: () => { requestId++; controller?.abort(); } };
     pane.setAttribute('aria-label', `${file.path} holographic file window`);
+    pane.classList.toggle('diff-view',!!context.beforeSha);
     const headingId = `file-window-${++serial}`;
     view('title').id = headingId;
     pane.setAttribute('aria-labelledby', headingId);
@@ -339,7 +340,7 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
         if(!stillCurrent())return;
         const {rows,truncated}=diffRows(before,after),grid=document.createElement('div');grid.className='diff-grid';
         for(const [label,sha] of [['Before',context.beforeSha],['After',context.sha]]){const heading=document.createElement('a');heading.className='diff-heading';heading.textContent=`${label} · ${sha.slice(0,7)}`;heading.href=`https://github.com/${context.repo}/blob/${sha}/${path}`;heading.target='_blank';heading.rel='noopener noreferrer';grid.append(heading);}
-        let firstChanged=null;
+        const hunks=[];let wasChanged=false;
         for(const row of rows){
           const pair=document.createElement('div');pair.className='diff-pair';
           for(const [side,value] of [['old',row.old],['next',row.next]]){
@@ -347,11 +348,27 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
             const number=document.createElement('span');number.className='diff-number';number.textContent=value?`${row.changed?(side==='old'?'−':'+'):' '} ${value.line}`:'';
             const code=document.createElement('code');code.textContent=value?.text||' ';cell.append(number,code);pair.append(cell);
           }
-          if(row.changed&&!firstChanged)firstChanged=pair;grid.append(pair);
+          if(row.changed&&!wasChanged)hunks.push(pair);wasChanged=row.changed;grid.append(pair);
         }
+        const nav=document.createElement('nav');nav.className='diff-navigation';nav.setAttribute('aria-label','Navigate code changes');
+        const previous=document.createElement('button'),next=document.createElement('button'),position=document.createElement('span');
+        previous.type=next.type='button';previous.textContent='← Previous';next.textContent='Next →';previous.setAttribute('aria-label','Previous change');next.setAttribute('aria-label','Next change');position.setAttribute('aria-live','polite');
+        nav.append(previous,position,next);grid.prepend(nav);
+        let current=-1;
+        function go(index){
+          current=Math.max(0,Math.min(index,hunks.length-1));
+          previous.disabled=!hunks.length||current===0;next.disabled=!hunks.length||current===hunks.length-1;
+          position.textContent=hunks.length?`Change ${current+1} of ${hunks.length}`:'No text changes';
+          for(const hunk of hunks)hunk.classList.remove('diff-current');
+          if(!hunks.length)return;
+          const target=hunks[current];target.classList.add('diff-current');
+          const content=view('content'),head=grid.querySelector('.diff-heading');
+          content.scrollTo({top:Math.max(0,content.scrollTop+target.getBoundingClientRect().top-content.getBoundingClientRect().top-nav.offsetHeight-head.offsetHeight-8),behavior:'instant'});
+        }
+        previous.onclick=()=>go(current-1);next.onclick=()=>go(current+1);
         view('content').replaceChildren(grid);
         view('status').textContent=truncated?'Comparison limited to first 2,000 lines per side':rows.some(r=>r.changed)?'− Before · + After · aligned lines':'No text changes (file metadata may have changed)';
-        if(firstChanged)view('content').scrollTop=Math.max(0,firstChanged.offsetTop-grid.offsetTop-50);
+        go(0);
         return;
       }
       if (IMAGE.test(file.path)) {

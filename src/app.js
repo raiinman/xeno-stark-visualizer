@@ -7,7 +7,7 @@ import { readCachedView, cacheSelectedView } from './viewCache.js';
 import { createWalkthrough } from './walkthrough.js';
 // A cached pre-preview shell can meet newer scripts during a Pages rollout.
 // Migrate it once to a fresh shell, preserving the chosen repository query.
-if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('file-dock') || !document.getElementById('changes-button') || !document.getElementById('playback-speed') || !document.getElementById('help-button') || !document.getElementById('walkthrough') || !document.getElementById('graph-title') || !document.getElementById('graph-detail') || !document.getElementById('graph-navigation') || !document.getElementById('repository-explorer') || !document.getElementById('layout') || !document.querySelector('#theme option[value="fusion"]') || document.querySelector('#theme option[value="classic"]')) {
+if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('file-dock') || !document.getElementById('label-backgrounds') || !document.getElementById('changes-button') || !document.getElementById('playback-speed') || !document.getElementById('help-button') || !document.getElementById('walkthrough') || !document.getElementById('graph-title') || !document.getElementById('graph-detail') || !document.getElementById('graph-navigation') || !document.getElementById('repository-explorer') || !document.getElementById('layout') || !document.querySelector('#theme option[value="fusion"]') || document.querySelector('#theme option[value="classic"]')) {
   const fresh = new URL(location.href);
   const version = new URL(import.meta.url).searchParams.get('v') || 'command-deck-3';
   if (fresh.searchParams.get('_ui') !== version) {
@@ -52,6 +52,7 @@ const state = {
   theme: ['fusion','jarvis','muthur'].includes(initialWorkspace.theme) ? initialWorkspace.theme : 'fusion',
   layoutMode: ['orbital','helix','hive'].includes(initialWorkspace.layoutMode) ? initialWorkspace.layoutMode : 'orbital', previewPath: null, previewTarget: null,
   graphPage: initialNavigation.page, restoringNavigation: true, graphView: null, fileListLimit: 100,
+  labelBackgrounds: initialWorkspace.labelBackgrounds===true,
   playbackSpeed: [0.25,0.5,1,2].includes(initialWorkspace.playbackSpeed)?initialWorkspace.playbackSpeed:1,
   hovered: null, playing: false, loading: false, version: 0, selection: 0,
   changes:{added:[],changed:[],removed:[]},changeMarkers:new Map(),comparison:'Starting view, no earlier view to compare.',
@@ -98,7 +99,7 @@ function saveWorkspace() {
   clearTimeout(cameraSaveTimer);cameraDirty = false;
   const camera = { yaw: state.yaw % (Math.PI * 2), pitch: state.pitch, zoom: state.zoom, autoRotate: state.autoRotate };
   const navigation = sanitizeNavigation({folder:state.folder,page:state.graphPage,query:state.query,expanded:state.expanded});
-  const saved = {version:2,playbackSpeed:state.playbackSpeed,theme:state.theme,layoutMode:state.layoutMode,camera,navigation,selectedCommitSha:state.selectedCommitSha};
+  const saved = {version:2,labelBackgrounds:state.labelBackgrounds,playbackSpeed:state.playbackSpeed,theme:state.theme,layoutMode:state.layoutMode,camera,navigation,selectedCommitSha:state.selectedCommitSha};
   repoWorkspaces.set(state.repo.toLowerCase(),saved);
   try {
     localStorage.setItem(repoWorkspaceKey(state.repo), JSON.stringify(saved));
@@ -108,6 +109,8 @@ function saveWorkspace() {
 }
 function restoreRepoWorkspace(repo) {
   const saved = readRepoWorkspace(repo), camera = saved.camera || {};
+  state.labelBackgrounds=saved.labelBackgrounds===true;
+  $('label-backgrounds').checked=state.labelBackgrounds;
   state.playbackSpeed=[0.25,0.5,1,2].includes(saved.playbackSpeed)?saved.playbackSpeed:1;
   $('playback-speed').value=String(state.playbackSpeed);
   state.theme = ['fusion','jarvis','muthur'].includes(saved.theme) ? saved.theme : 'fusion';
@@ -594,6 +597,8 @@ $('zoom-out').onclick=()=>zoom(1/1.18);
 $('reset-button').onclick=resetCamera;
 $('graph-detail').onchange=event=>{state.expanded=event.target.checked;state.graphPage=0;buildMap();};
 $('rotate-button').onclick=()=>setRotate(!state.autoRotate);
+$('label-backgrounds').checked=state.labelBackgrounds;
+$('label-backgrounds').onchange=event=>{state.labelBackgrounds=event.target.checked;dirty=true;saveWorkspace();};
 $('labels').onchange=()=>{dirty=true;};
 $('theme').onchange=event=>setTheme(event.target.value);
 $('layout').onchange=event=>setLayout(event.target.value);

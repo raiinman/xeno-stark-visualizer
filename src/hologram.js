@@ -222,7 +222,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
         ctx.beginPath();ctx.arc(p.x,p.y,Math.max(.1,5*(1-progress)),0,TAU);ctx.fill();
         if(labels && state.changeMarkers?.get(path)==='− Removed'){
           ctx.font='11px ui-monospace,Consolas,monospace';const label='− Removed: '+old.node.name;const w=ctx.measureText(label).width;
-          ctx.fillStyle='#03090d';ctx.fillRect(p.x+10,p.y-10,w+6,18);ctx.fillStyle=color;ctx.fillText(label,p.x+13,p.y+3);
+          if(state.labelBackgrounds){ctx.fillStyle='#03090d';ctx.fillRect(p.x+10,p.y-10,w+6,18);}ctx.fillStyle=color;ctx.fillText(label,p.x+13,p.y+3);
         }
         ctx.restore();
       }
@@ -317,7 +317,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
     const b=choices.map(b=>({...b,w:tw+6,h:18})).find(b=>b.x>=10&&b.x+b.w<=width-10&&b.y>=plotTop&&b.y+b.h<=height-60&&(p.hovered||!occupied.some(o=>b.x<o.x+o.w&&b.x+b.w>o.x&&b.y<o.y+o.h&&b.y+b.h>o.y))&&(p.hovered||!projections.some(o=>o.node!==p.node&&Math.abs(o.x-(b.x+b.w/2))<b.w/2+7&&Math.abs(o.y-(b.y+9))<13)));
     if(!b)continue;
     occupied.push(b);byNode.get(p.node).labelBox=b;
-    ctx.save();ctx.fillStyle='#03090de6';ctx.fillRect(b.x,b.y,b.w,b.h);
+    ctx.save();if(state.labelBackgrounds){ctx.fillStyle='#03090de6';ctx.fillRect(b.x,b.y,b.w,b.h);}
     ctx.fillStyle=p.hovered?gold:p.node.folder?p.color:'#dcf8ff';ctx.fillText(text,b.x+3,b.y+13);ctx.restore();
   }
   // Original targeting language stays inside the graph, not in extra dashboard cards.

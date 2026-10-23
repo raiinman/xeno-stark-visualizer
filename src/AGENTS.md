@@ -52,3 +52,6 @@ Run `node --check src/app.js` and `node --test src/graphView.test.js src/viewCac
 
 - Changed-file clicks open a before/after code comparison in the existing draggable/resizable/minimizable window system. Compare the exact previously displayed SHA with the selected SHA, persist both references, fetch bounded inert text, align line numbers, and label additions/removals. Never treat a failed old-file fetch as empty content. Binary/oversized comparisons explain the limit.
 - Normal playback is now 3.2 seconds per commit, with 1.8-second position transitions; speed multipliers apply to both. ARC-XENO and JARVIS retain their base glyphs with additional orbit rings, segmented arcs and satellite lights.
+
+- Diff windows have sticky Previous/Next change controls with a current/total count. Jump by contiguous edit blocks, scroll only inside the owning pane, highlight the selected block, and disable controls at the ends or for unchanged text. Controls remain usable after wrapping, resizing and minimizing.
+- Text backgrounds toggles graph label backplates, including Removed labels. It defaults off and persists independently per repository; keep the panel and code-reading surfaces intact.
