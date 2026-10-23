@@ -667,6 +667,7 @@ async function runTourPreview(){
   }
   await tick();
 }
+window.addEventListener('walkthrough-replay-preview',()=>{if($('walkthrough').hidden||$('walkthrough').dataset.step!=='1')return;stopPlayback();tourPreviewWanted=true;runTourPreview();});
 window.addEventListener('walkthrough-step',event=>{
   tourPreviewWanted=event.detail.preview===true;
   if(!tourPreviewWanted){if(tourPreviewActive)stopPlayback();return;}

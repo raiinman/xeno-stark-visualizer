@@ -2,6 +2,8 @@
 export function createWalkthrough() {
   const $ = id => document.getElementById(id);
   const panel=$('walkthrough'), trigger=$('help-button');
+  const replay=document.createElement('button');replay.type='button';replay.id='walkthrough-replay';replay.className='walkthrough-replay text-button';replay.textContent='Replay preview';replay.hidden=true;$('walkthrough-tip').after(replay);
+  replay.onclick=()=>{if(!panel.hidden&&index===0)window.dispatchEvent(new Event('walkthrough-replay-preview'));};
   const steps=[
     {title:'Watch this bar rebuild Xeno Space',copy:'Watch this short preview. Each tick of the bottom timeline loads a saved version of the repo into Xeno Space. New file orbs appear, edits are marked, removed files fade, and folders move.',tip:'Preparing a few real commits… The preview pauses automatically, or immediately when you choose Next.',targets:['.timeline','#graph']},
     {title:'Choose a version and watch its changes',copy:'Drag the highlighted slider to travel to a specific saved version. The graph and any files you open show that version. Speed controls how fast history plays; Latest jumps to the newest available version.',tip:'The counts below the slider show added, changed, and removed files. Click them to pause and see exactly which files changed. This bar changes the whole Xeno Space, not just the text below it.',targets:['#history','#playback-speed','#changes-button']},
@@ -55,7 +57,7 @@ export function createWalkthrough() {
   function close(){window.dispatchEvent(new CustomEvent('walkthrough-step',{detail:{preview:false}}));remember();panel.hidden=true;trigger.setAttribute('aria-expanded','false');clearTargets();panel.classList.remove('is-guided');panel.style.removeProperty('left');panel.style.removeProperty('top');if(firstVisit){firstVisit=false;dialog.close();home.after(panel);document.body.classList.remove('first-visit-open');window.dispatchEvent(new Event('walkthrough-dismissed'));}trigger.focus({preventScroll:true});}
   function render(){
     const step=steps[index];clearTargets();
-    panel.dataset.step=String(index+1);
+    panel.dataset.step=String(index+1);replay.hidden=index!==0;
     $('walkthrough-progress').textContent=`Step ${index+1} of ${steps.length}`;
     $('walkthrough-title').textContent=step.title;$('walkthrough-copy').textContent=step.copy;$('walkthrough-tip').textContent=index===0&&!firstVisit?'Playback is paused for this guide. After closing it, use Play/Pause on the highlighted bar to watch Xeno Space rebuild.':step.tip;
     $('walkthrough-back').disabled=index===0;$('walkthrough-next').textContent=index===steps.length-1?'Done':'Next';

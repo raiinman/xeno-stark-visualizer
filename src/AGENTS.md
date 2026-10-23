@@ -72,3 +72,5 @@ Run `node --check src/app.js` and `node --test src/graphView.test.js src/viewCac
 
 - JARVIS optical file nodes retain concentric lenses, ticks and scanning arcs, with the square corner brackets removed.
 - The first-run timeline step automatically previews up to four real commits, starting at the oldest available, with three-second holds. Spotlight both the bar and graph. Stop at the last preview version, before advancing steps, on dismissal, repository change, tab hiding or failures; invalidate in-flight results and timers. Reduced motion and restored panes skip automatic preview with an explanation. Manual guide replay remains paused.
+
+- The first guide step includes Replay preview for both first-run and manual help. Restart the bounded real-commit preview in place, cancelling any prior timer/request generation. Do not reset guide completion or step state; other steps hide the button and still stop preview playback.

@@ -171,3 +171,5 @@ body.first-visit-open{overflow:hidden}
 .walkthrough.is-guided,.first-visit-dialog .walkthrough{position:fixed;inset:auto;width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:24px;gap:16px}
 .first-visit-dialog .walkthrough h2{font-size:25px}.first-visit-dialog .walkthrough p{font-size:15px}.first-visit-dialog .walkthrough .walkthrough-tip{font-size:13px}
 @media(max-width:600px){.walkthrough.is-guided,.first-visit-dialog .walkthrough{padding:18px;gap:12px}.first-visit-dialog .walkthrough h2{font-size:22px}.first-visit-dialog .walkthrough p{font-size:13px}.first-visit-dialog .walkthrough .walkthrough-tip{font-size:12px}}
+
+.walkthrough .walkthrough-replay{margin-top:12px;border:1px solid var(--gold);color:var(--gold);min-height:36px;padding:6px 12px;font-size:13px}
