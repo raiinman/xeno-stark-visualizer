@@ -272,6 +272,21 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
       }
       ctx.fillStyle='#041018';ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=hovered?2:1.3;ctx.stroke();
       ctx.beginPath();ctx.arc(p.x,p.y,Math.max(2,r*.34),0,TAU);ctx.fillStyle=hovered?'#ffffff':color;ctx.fill();
+      // Add machinery around the existing glyph and nucleus, retaining each lens.
+      if(theme==='fusion'||theme==='jarvis'){
+        ctx.save();ctx.strokeStyle=color;ctx.lineWidth=.8;ctx.globalAlpha=.8;
+        const spin=clock*(theme==='fusion'?.00035:-.00025)+(n.cluster||0);
+        for(let ring=0;ring<2;ring++){
+          ctx.beginPath();ctx.ellipse(p.x,p.y,r*(1.5+ring*.25),r*(.48+ring*.15),spin+ring*Math.PI/2,0,TAU);ctx.stroke();
+        }
+        const segments=theme==='jarvis'?8:6;
+        for(let i=0;i<segments;i++){
+          const a=i/segments*TAU+spin;
+          ctx.beginPath();ctx.arc(p.x,p.y,r*1.8,a,a+(theme==='jarvis'?.16:.35));ctx.stroke();
+          if(i%2===0){ctx.fillStyle=theme==='jarvis'?gold:cyan;ctx.beginPath();ctx.arc(p.x+Math.cos(a)*r*1.5,p.y+Math.sin(a)*r*.55,1.4,0,TAU);ctx.fill();}
+        }
+        ctx.restore();
+      }
       if(hovered||changed){
         ctx.strokeStyle=hovered?gold:acid;ctx.lineWidth=1.5;
         ctx.beginPath();ctx.arc(p.x,p.y,r+6,-.5,.5);ctx.stroke();

@@ -219,6 +219,7 @@ async function showCommit(index, { animate = true } = {}) {
     if (version !== state.version || selection !== state.selection) return;
     if (filePreview.isOpen) filePreview.close();
     const baseline=!animate || state.index<0 || (state.playing && clamped===0);
+    state.comparisonSha=baseline?null:state.selectedCommitSha;
     state.changes=baseline?{added:[],changed:[],removed:[]}:compareTrees(state.files,files);
     state.changeMarkers=changeMarkers(state.changes);
     state.comparison=baseline?'Starting view. Changes appear as history advances.':`Compared with the previously displayed version ${state.selectedCommitSha?.slice(0,7)} → ${commit.sha.slice(0,7)}. Counts cover the entire repository. Renames appear as removed and added.`;
@@ -398,7 +399,7 @@ function buildMap() {
   }
   canvas.dataset.nodeCount = state.nodes.length;canvas.dataset.nodeLimit = GRAPH_NODE_LIMIT;
   layoutHologramNodes(state.nodes, state.layoutMode);
-  state.transition=previous.size?{from:previous,at:now,duration:2600/state.playbackSpeed}:null;
+  state.transition=previous.size?{from:previous,at:now,duration:1800/state.playbackSpeed}:null;
   updateMapStatus();
   $('graph-navigation').hidden = !state.folder && state.graphView.pages <= 1;
   $('graph-scope').textContent = state.folder ? `${state.folder}/` : 'Repository overview';
@@ -637,7 +638,7 @@ function renderChanges(baseline=false){
 $('changes-button').onclick=()=>{if(!$('changes-panel').hidden){closeChanges();return;}stopPlayback();$('changes-panel').hidden=false;$('changes-button').setAttribute('aria-expanded','true');$('close-changes').focus({preventScroll:true});};
 $('close-changes').onclick=()=>{closeChanges();$('changes-button').focus({preventScroll:true});};
 window.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('changes-panel').hidden){event.preventDefault();event.stopImmediatePropagation();closeChanges();$('changes-button').focus({preventScroll:true});}},true);
-function openFile(file){stopPlayback();filePreview.open(file);}
+function openFile(file){stopPlayback();filePreview.open(file,{beforeSha:state.changeMarkers.get(file.path)==='~ Changed'?state.comparisonSha:null});}
 function stopPlayback(){state.selection++;playbackRun++;clearTimeout(playTimer);playbackStep=null;state.playing=false;$('play-button').setAttribute('aria-label','Play recent commit history');$('play-button').innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg>';}
 async function startPlayback(fromStart=false){
   if(state.playing || state.commits.length<2)return;
@@ -653,13 +654,13 @@ async function startPlayback(fromStart=false){
     playbackPending=true;
     await showCommit((state.index+1)%state.commits.length);
     if(run===playbackRun)playbackPending=false;
-    if(state.playing && run===playbackRun)playTimer=setTimeout(step,6500/state.playbackSpeed);
+    if(state.playing && run===playbackRun)playTimer=setTimeout(step,3200/state.playbackSpeed);
   }
   playbackStep=step;
-  if(state.playing && run===playbackRun)playTimer=setTimeout(step,6500/state.playbackSpeed);
+  if(state.playing && run===playbackRun)playTimer=setTimeout(step,3200/state.playbackSpeed);
 }
 $('playback-speed').value=String(state.playbackSpeed);
-$('playback-speed').onchange=event=>{state.playbackSpeed=Number(event.target.value);saveWorkspace();if(state.playing&&playbackStep&&!playbackPending){clearTimeout(playTimer);playTimer=setTimeout(playbackStep,6500/state.playbackSpeed);}};
+$('playback-speed').onchange=event=>{state.playbackSpeed=Number(event.target.value);saveWorkspace();if(state.playing&&playbackStep&&!playbackPending){clearTimeout(playTimer);playTimer=setTimeout(playbackStep,3200/state.playbackSpeed);}};
 $('play-button').onclick=()=>state.playing?stopPlayback():startPlayback();
 document.addEventListener('keydown',event=>{
   if (event.target.closest('.holo-page')) return;

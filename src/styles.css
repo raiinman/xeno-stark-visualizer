@@ -135,3 +135,10 @@ body[data-theme] ::-webkit-scrollbar-thumb{background:var(--line)}
 .change-row strong{flex:0 0 64px;color:var(--gold);font-weight:500}.change-row span{overflow-wrap:anywhere;min-width:0}
 #changes-list{overflow:auto;max-height:48dvh}#changes-panel{z-index:100002}
 @media(max-width:720px){.visualizer-shell{grid-template-rows:105px minmax(0,1fr) 119px}.timeline{padding-bottom:37px}.changes-button{left:12px;right:12px;font-size:10px}}
+
+.diff-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-width:0;font:11px/1.7 ui-monospace,Consolas,monospace}
+.diff-heading{position:sticky;top:0;z-index:1;background:var(--panel);padding:8px 12px;border-bottom:1px solid var(--line);color:var(--gold)}
+.diff-pair{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.diff-cell{display:flex;min-width:0;padding:2px 6px;border-right:1px solid var(--line)}.diff-cell code{font:inherit;white-space:pre-wrap;overflow-wrap:anywhere;min-width:0;flex:1;color:var(--text)}
+.diff-number{flex:0 0 42px;color:var(--muted);user-select:none}.diff-removed{background:#ff637c20;box-shadow:inset 2px 0 #ff8999}.diff-added{background:#39ff1420;box-shadow:inset 2px 0 #a0ef86}
+.no-wrap .diff-cell{overflow-x:auto}.no-wrap .diff-cell code{white-space:pre;overflow-wrap:normal}

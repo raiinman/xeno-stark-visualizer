@@ -1,3 +1,4 @@
+import { diffRows, readDiffText } from './fileDiff.js';
 // Independent holographic panes. Each owns its request, geometry, focus, and content.
 const IMAGE = /\.(?:png|jpe?g|gif|webp|avif|svg|ico|bmp)$/i;
 const BINARY = /\.(?:zip|gz|7z|pdf|woff2?|ttf|mp[34]|wav|ogg|exe|dll|glb|blend|psd|kra)$/i;
@@ -54,7 +55,8 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
         if (typeof context?.repo !== 'string' || context.repo.toLowerCase() !== storageRepo.toLowerCase() || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(context.sha || '') || !validRect(rect)) continue;
         const safeFile = { path: file.path, size: Math.max(0, Number(file.size) || 0), type: file.type === 'commit' ? 'commit' : 'blob' };
         const safeContext = { repo: storageRepo, sha: context.sha };
-        const key = `${storageRepo}/${context.sha}/${file.path}`;
+        if(/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(context.beforeSha||''))safeContext.beforeSha=context.beforeSha;
+        const key = `${storageRepo}/${context.sha}/${file.path}/${safeContext.beforeSha||''}`;
         if (windows.has(key)) continue;
         const win = createPane(safeFile, safeContext, key);
         win.element.classList.add('settled');
@@ -225,9 +227,9 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     const headingId = `file-window-${++serial}`;
     view('title').id = headingId;
     pane.setAttribute('aria-labelledby', headingId);
-    view('title').textContent = file.path.split('/').at(-1);
+    view('title').textContent = file.path.split('/').at(-1)+(context.beforeSha?' · Changes':'');
     view('path').textContent = file.path;
-    view('ref').textContent = `${context.repo} · ${context.sha.slice(0, 7)}`;
+    view('ref').textContent = `${context.repo} · ${context.beforeSha?context.beforeSha.slice(0,7)+' → ':''}${context.sha.slice(0,7)}`;
     const path = file.path.split('/').map(encodeURIComponent).join('/');
     view('github').href = `https://github.com/${context.repo}/${file.type === 'commit' ? 'tree' : 'blob'}/${context.sha}/${path}`;
     view('close').onclick = () => dismiss(win);
@@ -330,6 +332,28 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     view('content').scrollTop = 0;
     message('Establishing holographic projection…');
     try {
+      if(context.beforeSha){
+        if(IMAGE.test(file.path)||BINARY.test(file.path)||file.type==='commit'||file.size>MAX_BYTES){view('status').textContent='Code comparison unavailable';message('This file is an image, binary, submodule, or too large for code comparison. Open it on GitHub to inspect it.');return;}
+        const oldRaw=`https://raw.githubusercontent.com/${context.repo}/${context.beforeSha}/${path}`;
+        const [before,after]=await Promise.all([readDiffText(oldRaw,abort.signal),readDiffText(raw,abort.signal)]);
+        if(!stillCurrent())return;
+        const {rows,truncated}=diffRows(before,after),grid=document.createElement('div');grid.className='diff-grid';
+        for(const [label,sha] of [['Before',context.beforeSha],['After',context.sha]]){const heading=document.createElement('a');heading.className='diff-heading';heading.textContent=`${label} · ${sha.slice(0,7)}`;heading.href=`https://github.com/${context.repo}/blob/${sha}/${path}`;heading.target='_blank';heading.rel='noopener noreferrer';grid.append(heading);}
+        let firstChanged=null;
+        for(const row of rows){
+          const pair=document.createElement('div');pair.className='diff-pair';
+          for(const [side,value] of [['old',row.old],['next',row.next]]){
+            const cell=document.createElement('div');cell.className='diff-cell'+(row.changed&&value?(side==='old'?' diff-removed':' diff-added'):'');
+            const number=document.createElement('span');number.className='diff-number';number.textContent=value?`${row.changed?(side==='old'?'−':'+'):' '} ${value.line}`:'';
+            const code=document.createElement('code');code.textContent=value?.text||' ';cell.append(number,code);pair.append(cell);
+          }
+          if(row.changed&&!firstChanged)firstChanged=pair;grid.append(pair);
+        }
+        view('content').replaceChildren(grid);
+        view('status').textContent=truncated?'Comparison limited to first 2,000 lines per side':rows.some(r=>r.changed)?'− Before · + After · aligned lines':'No text changes (file metadata may have changed)';
+        if(firstChanged)view('content').scrollTop=Math.max(0,firstChanged.offsetTop-grid.offsetTop-50);
+        return;
+      }
       if (IMAGE.test(file.path)) {
         if (file.size > 12_000_000) throw new Error('This image is too large for an inline preview.');
         const img = document.createElement('img');
@@ -384,19 +408,19 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
 
     workspace.append(pane);
     windows.set(key, win);
-    const b = bounds(), w = Math.min(740, b.w * .66), h = Math.min(580, b.h * .92);
+    const b = bounds(), w = Math.min(context.beforeSha?1100:740, b.w * (context.beforeSha ? .95 : .66)), h = Math.min(580, b.h * .92);
     geometry(win, { x: b.x + b.w - w - (windows.size - 1) * 28, y: b.y + (windows.size - 1) * 26, w, h });
     load(file, context);
     return win;
   }
 
-  function open(file) {
-    const context = getContext();
+  function open(file, options={}) {
+    const context = {...getContext(),...(options.beforeSha?{beforeSha:options.beforeSha}:{})};
     if (!context.sha) return;
     document.getElementById('hologram').scrollIntoView({ block: 'start', behavior: 'instant' });
     if (storageRepo !== context.repo) { clearTimeout(saveTimer); storageRepo = context.repo; }
     ready = true;
-    const key = `${context.repo}/${context.sha}/${file.path}`;
+    const key = `${context.repo}/${context.sha}/${file.path}/${context.beforeSha||''}`;
     let win = windows.get(key);
     if (!win) {
       win = createPane(file, context, key);
