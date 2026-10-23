@@ -8,6 +8,9 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
   const template = document.getElementById('file-preview');
   const workspace = document.getElementById('workspace');
   const tileButton = document.getElementById('tile-previews');
+  const minimizeButton = document.getElementById('minimize-previews');
+  const dock = document.getElementById('file-dock');
+  const dockItems = document.getElementById('dock-items');
   const windows = new Map();
   let active = null, layer = 40, serial = 0, manuallyArranged = false;
   const clamp = (n, low, high) => Math.max(low, Math.min(high, n));
@@ -22,9 +25,9 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
       const panes = [...windows.values()].sort((a,b) => Number(a.element.style.zIndex) - Number(b.element.style.zIndex)).map(win => ({
         file: { path: win.file.path, size: win.file.size, type: win.file.type },
         context: win.context, rect: win.rect, restore: win.restore,
-        wrapped: !win.element.classList.contains('no-wrap')
+        wrapped: !win.element.classList.contains('no-wrap'), minimized: win.minimized === true
       }));
-      localStorage.setItem(storageKey(storageRepo), JSON.stringify({ version: 1, panes, manuallyArranged }));
+      localStorage.setItem(storageKey(storageRepo), JSON.stringify({ version: 2, panes, manuallyArranged }));
     } catch { /* Restricted or full browser storage must not break the viewer. */ }
   }
   function saveSoon() {
@@ -41,7 +44,8 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     let saved;
     try { saved = JSON.parse(localStorage.getItem(storageKey(storageRepo))); }
     catch { return; }
-    if (saved?.version !== 1 || !Array.isArray(saved.panes)) return;
+    if (![1,2].includes(saved?.version) || !Array.isArray(saved.panes)) return;
+    const localRect = rect => saved.version === 1 ? { ...rect, x: rect.x - workspace.offsetLeft, y: rect.y - workspace.offsetTop } : rect;
     restoring = true;
     try {
       for (const entry of saved.panes.slice(-30)) {
@@ -54,15 +58,16 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
         if (windows.has(key)) continue;
         const win = createPane(safeFile, safeContext, key);
         win.element.classList.add('settled');
-        geometry(win, validRect(entry.restore) ? bounds() : rect);
-        win.restore = validRect(entry.restore) ? fit(entry.restore) : null;
+        geometry(win, validRect(entry.restore) ? bounds() : localRect(rect));
+        win.restore = validRect(entry.restore) ? fit(localRect(entry.restore)) : null;
         win.view('maximize').setAttribute('aria-label', win.restore ? 'Restore window size' : 'Maximize window');
         win.element.classList.toggle('no-wrap', entry.wrapped === false);
         win.view('wrap').setAttribute('aria-pressed', String(entry.wrapped !== false));
-        focus(win);
+        if (entry.minimized === true) { win.minimized = true; win.element.hidden = true; }
+        else focus(win);
       }
       manuallyArranged = saved.manuallyArranged === true;
-      tileButton.hidden = windows.size < 2;
+      updateDock();
     } finally { restoring = false; }
   }
   window.addEventListener('pagehide', saveNow);
@@ -70,7 +75,7 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
 
   function bounds() {
     const r = workspace.getBoundingClientRect();
-    return { x: r.left + 10, y: r.top + 52, w: r.width - 20, h: Math.max(160, r.height - 106) };
+    return { x: 10, y: 52, w: r.width - 20, h: Math.max(160, r.height - 106) };
   }
   function fit(rect) {
     const b = bounds();
@@ -85,12 +90,16 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     saveSoon();
   }
   function focus(win, keyboard = false) {
+    if (win.minimized) geometry(win, win.restore ? bounds() : win.rect);
+    win.minimized = false;
+    win.element.hidden = false;
     active = win;
     for (const other of windows.values()) other.element.classList.toggle('is-active', other === win);
     win.element.style.zIndex = ++layer;
     tileButton.style.zIndex = layer + 1;
     onOpen(win.file);
     if (keyboard) win.element.querySelector('.preview-header').focus({ preventScroll: true });
+    updateDock();
     saveSoon();
   }
   function dismiss(win, restoreFocus = true) {
@@ -99,11 +108,12 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     windows.delete(win.key);
     tileButton.hidden = windows.size < 2;
     if (active === win) {
-      active = [...windows.values()].sort((a,b) => Number(b.element.style.zIndex) - Number(a.element.style.zIndex))[0] || null;
+      active = [...windows.values()].filter(w => !w.minimized).sort((a,b) => Number(b.element.style.zIndex) - Number(a.element.style.zIndex))[0] || null;
       if (active) focus(active, restoreFocus);
       else onClose();
     }
     if (!windows.size) manuallyArranged = false;
+    updateDock();
     onGeometryChange();
     saveSoon();
   }
@@ -113,25 +123,56 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     if (!windows.size) { if (preserve) ready = false; return; }
     for (const win of windows.values()) { win.cancel(); win.element.remove(); }
     windows.clear();active = null;manuallyArranged = false;tileButton.hidden = true;
+    updateDock();
     onClose();onGeometryChange();
     if (preserve) ready = false;
     else saveNow();
   }
   function tile() {
-    const b = bounds(), count = windows.size;
+    const visible = [...windows.values()].filter(w => !w.minimized);
+    const b = bounds(), count = visible.length;
     if (!count) return;
     const columns = Math.min(count <= 3 ? count : Math.ceil(Math.sqrt(count)), Math.max(1, Math.floor((b.w + 10) / 310)));
     const rows = Math.ceil(count / columns), gap = 10;
     const w = (b.w - gap * (columns - 1)) / columns;
     const h = rows === 1 ? Math.min(580, b.h * .86) : (b.h - gap * (rows - 1)) / rows;
     const offsetY = rows === 1 ? (b.h - h) / 2 : 0;
-    [...windows.values()].forEach((win, i) => {
+    visible.forEach((win, i) => {
       win.restore = null;
       win.element.classList.add('settled');
       geometry(win, { x: b.x + (i % columns) * (w + gap), y: b.y + offsetY + Math.floor(i / columns) * (h + gap), w, h });
       win.view('maximize').setAttribute('aria-label', 'Maximize window');
     });
   }
+  function updateDock() {
+    const minimized = [...windows.values()].filter(w => w.minimized);
+    const visible = [...windows.values()].filter(w => !w.minimized);
+    tileButton.hidden = visible.length < 2;
+    minimizeButton.hidden = visible.length === 0;
+    dock.hidden = minimized.length === 0;
+    workspace.classList.toggle('has-minimized', minimized.length > 0);
+    dockItems.replaceChildren(...minimized.map(win => {
+      const button = document.createElement('button');
+      button.type = 'button';button.className = 'dock-file';
+      button.textContent = win.file.path.split('/').at(-1);
+      button.title = win.file.path;
+      button.setAttribute('aria-label', `Restore ${win.file.path}`);
+      button.onclick = () => focus(win, true);
+      return button;
+    }));
+  }
+  function minimize(win) {
+    win.minimized = true;win.element.hidden = true;
+    if (active === win) {
+      active = [...windows.values()].filter(w => !w.minimized).sort((a,b) => Number(b.element.style.zIndex) - Number(a.element.style.zIndex))[0] || null;
+      if (active) focus(active, true);else onClose();
+    }
+    updateDock();saveSoon();onGeometryChange();
+  }
+  minimizeButton.onclick = () => {
+    for (const win of windows.values()) { win.minimized = true;win.element.hidden = true; }
+    active = null;updateDock();onClose();saveSoon();onGeometryChange();
+  };
   function maximize(win) {
     win.element.classList.add('settled');
     manuallyArranged = true;
@@ -179,7 +220,7 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     const pane = template.content.firstElementChild.cloneNode(true);
     const view = name => pane.querySelector(`[data-preview="${name}"]`);
     let controller = null, requestId = 0;
-    const win = { element: pane, file, context, key, view, rect: null, restore: null, cancel: () => { requestId++; controller?.abort(); } };
+    const win = { element: pane, file, context, key, view, rect: null, restore: null, minimized: false, cancel: () => { requestId++; controller?.abort(); } };
     pane.setAttribute('aria-label', `${file.path} holographic file window`);
     const headingId = `file-window-${++serial}`;
     view('title').id = headingId;
@@ -190,6 +231,7 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     const path = file.path.split('/').map(encodeURIComponent).join('/');
     view('github').href = `https://github.com/${context.repo}/${file.type === 'commit' ? 'tree' : 'blob'}/${context.sha}/${path}`;
     view('close').onclick = () => dismiss(win);
+    view('minimize').onclick = () => minimize(win);
     view('maximize').onclick = () => maximize(win);
     view('wrap').onclick = () => {
       const wrapped = pane.classList.toggle('no-wrap') === false;
@@ -351,6 +393,7 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
   function open(file) {
     const context = getContext();
     if (!context.sha) return;
+    document.getElementById('hologram').scrollIntoView({ block: 'start', behavior: 'instant' });
     if (storageRepo !== context.repo) { clearTimeout(saveTimer); storageRepo = context.repo; }
     ready = true;
     const key = `${context.repo}/${context.sha}/${file.path}`;
@@ -359,7 +402,7 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
       win = createPane(file, context, key);
       if (windows.size > 1 && !manuallyArranged) tile();
     }
-    tileButton.hidden = windows.size < 2;
+    updateDock();
     focus(win, true);
   }
   tileButton.onclick = () => { manuallyArranged = true; tile(); };

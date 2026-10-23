@@ -1,10 +1,11 @@
 import { layoutHologramNodes, drawHologram } from './hologram.js';
 import { createFilePreview } from './filePreview.js';
+import { createRepositoryExplorer } from './repositoryExplorer.js';
 // A cached pre-preview shell can meet newer scripts during a Pages rollout.
 // Migrate it once to a fresh shell, preserving the chosen repository query.
-if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('layout')) {
+if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('file-dock') || !document.getElementById('repository-explorer') || !document.getElementById('layout')) {
   const fresh = new URL(location.href);
-  const version = new URL(import.meta.url).searchParams.get('v') || 'windows-2';
+  const version = new URL(import.meta.url).searchParams.get('v') || 'command-deck-3';
   if (fresh.searchParams.get('_ui') !== version) {
     fresh.searchParams.set('_ui', version);
     location.replace(fresh.href);
@@ -39,6 +40,23 @@ const filePreview = createFilePreview({
   onClose: () => { state.previewPath = null; state.previewTarget = null; canvas.focus({ preventScroll: true }); dirty = true; },
   onGeometryChange: () => { dirty = true; }
 });
+const explorer = createRepositoryExplorer({
+  getContext: () => ({ repo: state.repo, branch: state.branch, files: state.files, commits: state.commits, index: state.index, info: state.repositoryInfo, theme: state.theme, layoutMode: state.layoutMode }),
+  onRepository: repo => { const url = new URL(location.href);url.searchParams.set('repo',repo);history.replaceState(null,'',url);loadRepository(repo); },
+  onCommit: index => { stopPlayback();showCommit(index); },
+  onFolder: path => { state.folder = path;state.query = '';$('search').value = '';buildMap();$('hologram').scrollIntoView({ block: 'start', behavior: 'instant' }); },
+  onFile: file => filePreview.open(file),
+  onTheme: setTheme,
+  onLayout: setLayout,
+  onExport: exportRepository
+});
+function setTheme(theme) { state.theme = theme;document.body.dataset.theme = theme;$('theme').value = theme;readPalette();explorer.update(); }
+function setLayout(layout) { state.layoutMode = layout;$('layout').value = layout;layoutHologramNodes(state.nodes,layout);dirty = true;explorer.update(); }
+function exportRepository(kind) {
+  const download = (blob, name) => { const url = URL.createObjectURL(blob);const a = document.createElement('a');a.href = url;a.download = name;a.click();setTimeout(() => URL.revokeObjectURL(url),1000); };
+  if (kind === 'png') canvas.toBlob(blob => { if(blob)download(blob,'xeno-stark-hologram.png'); });
+  else download(new Blob([JSON.stringify({ repo: state.repo, branch: state.branch, commits: state.commits.slice(0,state.index + 1), files: state.files },null,2)],{type:'application/json'}),'repository.json');
+}
 
 function notice(message, persistent = false) {
   clearTimeout(state.noticeTimer);
@@ -92,6 +110,7 @@ function repoHeader() {
   $('repo-input').value = state.repo;
   $('branch-name').textContent = state.branch;
   document.title = `${name} | Xeno-Stark`;
+  explorer.update();
 }
 
 function updateHistory() {
@@ -109,6 +128,7 @@ function updateHistory() {
   const date = new Date(c.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   $('commit-meta').textContent = `${c.sha.slice(0, 7)} · ${c.author} · ${date}${state.index === state.commits.length - 1 ? ' · latest' : ''}`;
   $('data-source').textContent = `${state.source}. Showing up to 40 recent commits.`;
+  explorer.update();
 }
 
 async function showCommit(index, { animate = true } = {}) {
@@ -151,6 +171,7 @@ async function refresh({ first = false } = {}) {
       const repo = await github('');
       if (version !== state.version) return;
       state.branch = repo.default_branch;
+      state.repositoryInfo = repo;
       repoHeader();
     }
     const data = await github(`commits?sha=${encodeURIComponent(state.branch)}&per_page=40`);
@@ -206,6 +227,7 @@ async function loadRepository(repo) {
   state.loading = false;
   state.commits = [];
   state.files = [];
+  state.repositoryInfo = null;
   state.trees.clear();
   state.query = '';
   state.folder = '';
@@ -284,6 +306,7 @@ function buildMap() {
     $('retry-button').hidden = true;
   } else $('retry-button').hidden = false;
   dirty = true;
+  explorer.update();
 }
 
 function updateMapStatus() {
@@ -341,7 +364,7 @@ function resize() {
 }
 
 function draw(time) {
-  if (filePreview.isOpen) {
+  if (filePreview.activeWindow) {
     const pane = filePreview.activeWindow.getBoundingClientRect();
     const graph = canvas.getBoundingClientRect();
     state.previewTarget = { x: pane.left - graph.left, y: pane.top - graph.top + 45 };
@@ -448,8 +471,8 @@ $('zoom-out').onclick=()=>zoom(1/1.18);
 $('reset-button').onclick=resetCamera;
 $('rotate-button').onclick=()=>setRotate(!state.autoRotate);
 $('labels').onchange=()=>{dirty=true;};
-$('theme').onchange=event=>{state.theme=event.target.value;document.body.dataset.theme=event.target.value;readPalette();};
-$('layout').onchange=event=>{state.layoutMode=event.target.value;layoutHologramNodes(state.nodes,state.layoutMode);dirty=true;};
+$('theme').onchange=event=>setTheme(event.target.value);
+$('layout').onchange=event=>setLayout(event.target.value);
 $('search').oninput=event=>{state.query=event.target.value.trim().toLowerCase();state.hovered=null;$('tooltip').hidden=true;buildMap();};
 $('clear-filter').onclick=()=>{state.folder='';state.query='';$('search').value='';buildMap();};
 $('repo-form').onsubmit=event=>{

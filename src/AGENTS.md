@@ -5,6 +5,7 @@
 - `app.js`: public GitHub data, commit-tree caching, snapshot fallback, projected 3D folder graph, search, file links, history, and drawers.
 - `hologram.js`: the restored original graph aesthetic: 3D orbital/helix/hive positions, perspective orbit, gimbal rings, glowing hexagonal cores, targeting reticles, tendrils, and flowing energy.
 - `filePreview.js`: independent holographic file windows, per-window requests, safe text/image previews, pointer and keyboard move/resize, tiling, maximize/restore, wrapping, and secondary GitHub navigation.
+- `repositoryExplorer.js`: restored command deck below the graph, public repository selection, real commit/file telemetry, folder focus, tracked AGENTS.md previews, display controls, and exports.
 - `styles.css`: full-viewport layout, desktop/phone adaptation, original cyan/gold/acid themes, focus and other interaction states.
 - `engine/`, `visualizers/`, and `audio/` contain the original experimental modules. The live application does not import them.
 
@@ -17,8 +18,9 @@
 - File panes are nonmodal so users can open several files and still operate the graph. Each pane owns its request and geometry. Focus brings it forward; Escape dismisses the focused pane. History/repository changes close all panes. Preserve graph orbit pause while panes are open.
 - Wrap source lines by default, including long tokens. Provide a per-pane Wrap toggle, title-bar drag, edge/corner resize, maximize/restore, Tile files, and keyboard arrow controls for title bars and resize grips. Clamp panes to the workspace after viewport changes.
 - Save open panes, immutable commit references, geometry, stacking order, wrapping, and maximize/restore state in browser localStorage per repository. Debounce moves and flush on pagehide. Restore once after initial data loading, without overwriting saved layouts during startup or repository transitions. Validate stored records and tolerate unavailable storage.
+- Minimized panes stay open and retain requests and geometry. Dock buttons restore them; Show graph minimizes every visible pane. Only visible panes participate in tiling or active-node targeting. Persist minimized state with schema 2, migrating schema 1 viewport coordinates into workspace-relative coordinates.
 - Match the original slow automatic orbit by default. Pause orbit when a node is hovered, stop it during manual drag, and respect reduced motion. Audio stays off. Support wheel, pinch, and native file links.
-- Full-screen inspection must leave the graph visible without document scrolling. Drawers are optional, dismissible overlays.
+- The graph, header, and timeline fill the first viewport. The page scrolls to the repository explorer underneath. File windows use workspace-relative absolute positions so they scroll away with the graph; previews opened from the explorer return to the graph. Drawers remain dismissible overlays.
 
 ## Verification
 

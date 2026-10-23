@@ -11,11 +11,13 @@
   <script type="module" src="src/app.js"></script>
 </head>
 <body>
+  <div class="visualizer-shell" id="hologram">
   <header class="toolbar">
     <a class="brand" href="./" aria-label="Xeno-Stark home"><img src="public/assets/arc-xeno-core.jpg" alt="" width="30" height="30"><span>XENO<span class="brand-divider">/</span>STARK</span></a>
     <a id="repo-link" class="repo-link" href="https://github.com/raiinman/xeno-stark-visualizer" target="_blank" rel="noopener noreferrer">raiinman/<strong>xeno-stark-visualizer</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a>
     <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><input id="search" type="search" placeholder="Find a file…" aria-label="Find a file" autocomplete="off"><kbd>/</kbd></label>
     <div class="toolbar-actions">
+      <a href="#repository-explorer" class="text-button explore-button" aria-label="Explore repository below the visualizer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v11H4ZM12 15v6m-4-4 4 4 4-4"/></svg><span>Explore</span></a>
       <button id="files-button" class="text-button" aria-controls="files-panel" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h12M8 12h12M8 19h12M3 5h.01M3 12h.01M3 19h.01"/></svg><span>Files</span></button>
       <button id="settings-button" class="icon-button" aria-label="View options" aria-controls="settings-panel" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></svg></button>
     </div>
@@ -48,6 +50,8 @@
       <p class="panel-note">Connections show folders and their files. Updates are checked every 5 minutes while this tab is visible.</p>
       <p id="data-source" class="panel-note"></p>
     </aside>
+    <button id="minimize-previews" class="text-button minimize-previews" hidden>Show graph</button>
+    <nav id="file-dock" class="file-dock" aria-label="Minimized files" hidden><span class="dock-label">Parked files</span><div id="dock-items" class="dock-items"></div></nav>
     <button id="tile-previews" class="text-button tile-previews" hidden>Tile files</button>
     <template id="file-preview">
     <section class="holo-page" role="dialog" aria-modal="false" open>
@@ -55,6 +59,7 @@
         <svg class="preview-emblem" viewBox="0 0 32 32" aria-hidden="true"><path d="m16 2 12 7v14l-12 7-12-7V9Z"/><path d="M12 10h6l4 4v9H12Z M18 10v5h4"/></svg>
         <div class="preview-heading"><h2 data-preview="title"></h2><p data-preview="path"></p></div>
         <button data-preview="wrap" class="text-button preview-wrap" aria-label="Toggle line wrapping" aria-pressed="true">Wrap</button>
+        <button data-preview="minimize" class="icon-button" aria-label="Minimize window"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17h14"/></svg></button>
         <button data-preview="maximize" class="icon-button" aria-label="Maximize window"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/></svg></button>
         <button data-preview="close" class="icon-button" aria-label="Dismiss hologram"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
       </header>
@@ -71,5 +76,7 @@
     <span id="history-position" class="history-position"></span>
     <button id="latest-button" class="text-button" disabled>Latest</button>
   </footer>
+  </div>
+  <section id="repository-explorer" class="repository-explorer" aria-label="Repository command deck"></section>
 </body>
 </html>
