@@ -1,7 +1,6 @@
 // The original Stark/Xeno graph's 3D layouts, perspective, and tactical drawing language.
 // Data and file navigation remain in app.js. All coordinates below are world-space.
 const TAU = Math.PI * 2;
-const FUSION = ['#ffb800', '#00f0ff', '#39ff14', '#38bdf8', '#b481ff', '#ff637c'];
 
 export function layoutHologramNodes(nodes, mode = 'orbital') {
   const files = nodes.filter(n => !n.folder || n.parent && n.fileCount);
@@ -58,10 +57,9 @@ export function layoutHologramNodes(nodes, mode = 'orbital') {
 }
 
 function colorFor(node, theme) {
-  const index = node.cluster || 0;
-  if (theme === 'jarvis') return ['#00d9ff','#a5efff','#3a8dff','#72caff'][index % 4];
-  if (theme === 'muthur') return ['#39ff14','#00ff88','#a3e635','#ff9900'][index % 4];
-  return FUSION[index % FUSION.length];
+  // Color explains kind consistently; the lens supplies the material and instruments.
+  if (node.folder) return theme === 'muthur' ? '#ffb547' : '#ffcc66';
+  return theme === 'muthur' ? '#39ff14' : theme === 'jarvis' ? '#8ceaff' : '#00f0ff';
 }
 
 export function drawHologram({ctx, width, height, state, core, palette, time, motion, labels}) {
@@ -72,7 +70,8 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
   const acid = theme === 'jarvis' ? '#ffcc00' : '#39ff14';
   const gold = theme === 'muthur' ? '#a3e635' : '#ffb800';
   const clock = motion ? time : 0;
-  const unit = Math.max(35, Math.min(width * .30, height * .41)) * state.zoom * (state.layoutMode === 'helix' ? .82 : 1);
+  const plotTop = labels ? (width<600?165:145) : 24, plotHeight = Math.max(100,height-plotTop-(labels?65:24));
+  const unit = Math.max(35, Math.min(width * .30, plotHeight * .43)) * state.zoom * (state.layoutMode === 'helix' ? .82 : 1);
   const distance = 3.6;
   const cy = Math.cos(state.yaw), sy = Math.sin(state.yaw);
   const cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
@@ -83,7 +82,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
     const y = p.y * cp - rz * sp;
     const depth = p.y * sp + rz * cp;
     const scale = distance / (distance + depth);
-    return { x: width * .5 + x * unit * scale, y: height * .49 - y * unit * scale, depth, scale };
+    return { x: width * .5 + x * unit * scale, y: plotTop+plotHeight*.5-y*unit*scale, depth, scale };
   }
   function path3D(points, color, alpha, lineWidth = 1, glow = false) {
     ctx.save();
@@ -103,11 +102,11 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
       return {x,y:z*Math.sin(tilt),z:z*Math.cos(tilt)};
     };
     const ring = Array.from({length:145},(_,i)=>point(i/144*TAU));
-    path3D(ring,color,.20,1,true);
+    path3D(ring,color,.09,1);
     // Short illuminated bands and machined azimuth ticks define each gimbal plane.
     for(let band=0;band<3;band++) {
       const start=band/3*TAU+.2;
-      path3D(Array.from({length:28},(_,i)=>point(start+i/27*.48)),color,.64,2,true);
+      path3D(Array.from({length:28},(_,i)=>point(start+i/27*.48)),color,.28,1.3,true);
     }
     for(let i=0;i<64;i++) {
       const a=i/64*TAU;
@@ -137,6 +136,17 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
     gimbal(.36, .18, 'x', 0, gold, 0);gimbal(.72, -.25, 'x', .35, acid, 1);
     gimbal(1.04, .12, 'x', .8, cyan, 2);gimbal(.93, 1.12, 'z', .2, cyan, 3);
   }
+  if (theme !== 'muthur') {
+    // Reactor vanes for ARC-XENO; calibrated targeting brackets for J.A.R.V.I.S.
+    const radius = theme === 'fusion' ? .22 : .31, segments = theme === 'fusion' ? 12 : 4;
+    for(let i=0;i<segments;i++) {
+      const a=i/segments*TAU+(theme==='fusion'?clock*.00005:Math.PI/4);
+      const points=Array.from({length:12},(_,j)=>({x:Math.cos(a+j/11*.16)*radius,y:Math.sin(a+j/11*.16)*radius,z:0}));
+      path3D(points,theme==='fusion'?gold:cyan,.8,theme==='fusion'?3:2,true);
+      if(theme==='jarvis') path3D([{x:Math.cos(a)*.34,y:Math.sin(a)*.34,z:0},{x:Math.cos(a)*.42,y:Math.sin(a)*.42,z:0}],gold,.75,2);
+    }
+    if(theme==='fusion') gimbal(.25,.9,'z',.5,cyan,4);
+  }
   if (state.layoutMode === 'helix') {
     const strand = (t,side) => ({x:Math.cos(t*TAU*1.6+side*Math.PI)*.55,y:(t-.5)*2.25,z:Math.sin(t*TAU*1.6+side*Math.PI)*.55});
     for (let side=0;side<2;side++) path3D(Array.from({length:97},(_,i)=>strand(i/96,side)),side?gold:cyan,.5,1.5,true);
@@ -152,7 +162,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
   const active = new Set();
   for(let node=state.hovered;node;node=node.parent)active.add(node);
   function curve(a,b,index) {
-    if (theme === 'jarvis') return t => ({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t});
+    if (theme === 'jarvis') return t => t<.5 ? {x:a.x+(b.x-a.x)*t*2,y:a.y,z:a.z+(b.z-a.z)*t*2} : {x:b.x,y:a.y+(b.y-a.y)*(t-.5)*2,z:b.z};
     const mid={x:(a.x+b.x)*.5+(b.z-a.z)*.16,y:(a.y+b.y)*.5+.10+Math.sin(index*1.7)*.07,z:(a.z+b.z)*.5-(b.x-a.x)*.16};
     return t=>{
       const s=1-t;
@@ -166,8 +176,8 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
     const point=curve(node.parent,node,index);
     const points=Array.from({length:22},(_,i)=>point(i/21));
     const color=lit?gold:colorFor(node,theme);
-    path3D(points,color,lit?.20:.045,lit?6:3);
-    path3D(points,color,lit?.85:.33,lit?1.8:.9,lit);
+    path3D(points,color,lit?.18:.02,lit?5:2);
+    path3D(points,color,lit?.85:.18,lit?1.8:.8,lit);
     if(motion && (index%2===0||lit)) {
       const t=(clock*.00022+index*.137)%1;
       const p=project(point(t));
@@ -190,11 +200,15 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
       const glow=ctx.createRadialGradient(p.x,p.y,3,p.x,p.y,42);
       glow.addColorStop(0,cyan+'66');glow.addColorStop(1,cyan+'00');
       ctx.fillStyle=glow;ctx.beginPath();ctx.arc(p.x,p.y,42,0,TAU);ctx.fill();
-      if(core.complete&&core.naturalWidth){ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,19,0,TAU);ctx.clip();ctx.drawImage(core,p.x-19,p.y-19,38,38);ctx.restore();}
+      if(theme==='jarvis') {
+        const iris=ctx.createRadialGradient(p.x,p.y,2,p.x,p.y,20);iris.addColorStop(0,'#ecffff');iris.addColorStop(.2,'#21dfff');iris.addColorStop(.5,'#064369');iris.addColorStop(1,'#020f24');
+        ctx.fillStyle=iris;ctx.beginPath();ctx.arc(p.x,p.y,20,0,TAU);ctx.fill();ctx.strokeStyle=cyan;ctx.lineWidth=1;
+        for(const r of [9,16,21]){ctx.beginPath();ctx.arc(p.x,p.y,r,0,TAU);ctx.stroke();}
+      } else if(core.complete&&core.naturalWidth){ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,19,0,TAU);ctx.clip();ctx.drawImage(core,p.x-19,p.y-19,38,38);ctx.restore();}
       ctx.strokeStyle=gold;ctx.globalAlpha=.7;ctx.lineWidth=1;ctx.beginPath();ctx.arc(p.x,p.y,24,0,TAU);ctx.stroke();
     } else if(n.folder) {
       ctx.strokeStyle=color;ctx.globalAlpha=hovered?1:.75;ctx.lineWidth=1;
-      ctx.beginPath();ctx.arc(p.x,p.y,r,0,TAU);ctx.stroke();ctx.fillStyle=color;ctx.fillRect(p.x-1,p.y-1,2,2);
+      ctx.fillStyle='#06131bf5';ctx.beginPath();ctx.moveTo(p.x-r,p.y-r*.55);ctx.lineTo(p.x-r*.2,p.y-r*.55);ctx.lineTo(p.x+r*.1,p.y-r*.25);ctx.lineTo(p.x+r,p.y-r*.25);ctx.lineTo(p.x+r,p.y+r*.65);ctx.lineTo(p.x-r,p.y+r*.65);ctx.closePath();ctx.fill();ctx.stroke();
     } else {
       // Original luminous halo, hexagonal chitin core, and arc nucleus.
       const glow=ctx.createRadialGradient(p.x,p.y,r*.2,p.x,p.y,r*2.5);
@@ -226,24 +240,21 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
   }
   // Keep names legible over the effects; hidden collisions remain accessible in Files.
   const occupied=[];
-  labelCandidates.sort((a,b)=>Number(b.hovered)-Number(a.hovered)||Number(a.node.folder)-Number(b.node.folder)||a.depth-b.depth);
+  labelCandidates.sort((a,b)=>Number(b.hovered)-Number(a.hovered)||Number(b.node.folder)-Number(a.node.folder)||a.depth-b.depth);
   for(const p of labelCandidates){
     const size=width<600?11:12;
     ctx.font=`${p.hovered?'600 ':'500 '}${size}px ui-monospace,Consolas,monospace`;
     const max=width<600?19:30;
-    const label=p.node.fileCount ? p.node.name+' · '+p.node.fileCount : p.node.name;
-    const text=label.length>max?label.slice(0,max-1)+'…':label;
+    const suffix=p.node.fileCount?' · '+p.node.fileCount.toLocaleString():'';
+    const room=Math.max(6,max-suffix.length), name=p.node.name;
+    const text=(name.length>room?name.slice(0,room-1)+'…':name)+suffix;
     const tw=ctx.measureText(text).width;
-    let tx=p.x+p.r+7;
-    if(tx+tw>width-18)tx=p.x-p.r-7-tw;
-    const b={x:tx-3,y:p.y-9,w:tw+6,h:18};
-    if(b.x<10||b.x+b.w>width-10||b.y<65||b.y+b.h>height-60)continue;
-    if(!p.hovered&&occupied.some(o=>b.x<o.x+o.w&&b.x+b.w>o.x&&b.y<o.y+o.h&&b.y+b.h>o.y))continue;
-    // Avoid placing a label across another node's hit target.
-    if(!p.hovered&&projections.some(o=>o.node!==p.node&&Math.abs(o.x-(b.x+b.w/2))<b.w/2+7&&Math.abs(o.y-p.y)<13))continue;
+    const choices=[{x:p.x+p.r+4,y:p.y-9},{x:p.x-p.r-10-tw,y:p.y-9},{x:p.x-tw*.5-3,y:p.y-p.r-25},{x:p.x-tw*.5-3,y:p.y+p.r+8}];
+    const b=choices.map(b=>({...b,w:tw+6,h:18})).find(b=>b.x>=10&&b.x+b.w<=width-10&&b.y>=plotTop&&b.y+b.h<=height-60&&(p.hovered||!occupied.some(o=>b.x<o.x+o.w&&b.x+b.w>o.x&&b.y<o.y+o.h&&b.y+b.h>o.y))&&(p.hovered||!projections.some(o=>o.node!==p.node&&Math.abs(o.x-(b.x+b.w/2))<b.w/2+7&&Math.abs(o.y-(b.y+9))<13)));
+    if(!b)continue;
     occupied.push(b);byNode.get(p.node).labelBox=b;
     ctx.save();ctx.fillStyle='#03090de6';ctx.fillRect(b.x,b.y,b.w,b.h);
-    ctx.fillStyle=p.hovered?gold:p.node.folder?p.color:'#dcf8ff';ctx.fillText(text,tx,p.y+4);ctx.restore();
+    ctx.fillStyle=p.hovered?gold:p.node.folder?p.color:'#dcf8ff';ctx.fillText(text,b.x+3,b.y+13);ctx.restore();
   }
   // Original targeting language stays inside the graph, not in extra dashboard cards.
   ctx.save();ctx.strokeStyle=cyan;ctx.globalAlpha=.5;ctx.lineWidth=1;

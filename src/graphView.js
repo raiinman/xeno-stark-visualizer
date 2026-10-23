@@ -1,9 +1,10 @@
 // Bound rendering work without dropping files from the repository or search.
 export const GRAPH_NODE_LIMIT = 80;
+export const OVERVIEW_NODE_LIMIT = 25;
 export function sanitizeNavigation(saved = {}) {
   let folder = typeof saved?.folder === 'string' ? saved.folder : '';
   if (folder.length > 2000 || folder && folder.split('/').some(part=>!part || part==='.' || part==='..')) folder = '';
-  return {folder,page:Number.isSafeInteger(saved?.page) && saved.page >= 0 ? saved.page : 0,query:typeof saved?.query === 'string' ? saved.query.slice(0,500).trim().toLowerCase() : ''};
+  return {folder,page:Number.isSafeInteger(saved?.page) && saved.page >= 0 ? saved.page : 0,query:typeof saved?.query === 'string' ? saved.query.slice(0,500).trim().toLowerCase() : '',expanded:saved?.expanded === true};
 }
 export function reconcileNavigation(saved,files) {
   const navigation = sanitizeNavigation(saved), original = navigation.folder;
@@ -11,11 +12,11 @@ export function reconcileNavigation(saved,files) {
   if (navigation.folder !== original) navigation.page = 0;
   return navigation;
 }
-export function buildGraphView(files, { folder = '', name = 'Repository', page = 0 } = {}) {
+export function buildGraphView(files, { folder = '', name = 'Repository', page = 0, expanded = false } = {}) {
   const root = { path: folder, name: folder ? folder.split('/').at(-1) + '/' : name, folder: true, children: [], depth: 0, x: 0, y: 0, z: 0 };
   const folders = new Map([[folder, root]]), nodes = [root];
   // Preserve the original full hierarchy for small maps. Stop construction at the cap.
-  outer: for (const file of files) {
+  outer: for (const file of expanded ? files : []) {
     const relative = folder ? file.path.slice(folder.length + 1) : file.path;
     const parts = relative.split('/');let parent = root;
     for (let i=0;i<parts.length-1;i++) {
@@ -31,7 +32,7 @@ export function buildGraphView(files, { folder = '', name = 'Repository', page =
     parent.children.push(node);nodes.push(node);
     if (nodes.length > GRAPH_NODE_LIMIT) break;
   }
-  if (nodes.length <= GRAPH_NODE_LIMIT && nodes.filter(n=>!n.folder).length === files.length) return {nodes:files.length?nodes:[],grouped:false,page:0,pages:1,total:files.length};
+  if (!files.length || expanded && nodes.length <= GRAPH_NODE_LIMIT && nodes.filter(n=>!n.folder).length === files.length) return {nodes:files.length?nodes:[],grouped:false,page:0,pages:1,total:files.length};
   // Large maps show immediate children. Folder nodes summarize real descendants.
   root.children = [];
   const entries = new Map();
@@ -45,7 +46,7 @@ export function buildGraphView(files, { folder = '', name = 'Repository', page =
     } else entries.set(path,{...file,name:first,folder:false,parent:root,depth:1});
   }
   const all = [...entries.values()].sort((a,b)=>Number(b.folder)-Number(a.folder)||a.path.localeCompare(b.path));
-  const pageSize = GRAPH_NODE_LIMIT-1, pages = Math.max(1,Math.ceil(all.length/pageSize));
+  const pageSize = (expanded ? GRAPH_NODE_LIMIT : OVERVIEW_NODE_LIMIT)-1, pages = Math.max(1,Math.ceil(all.length/pageSize));
   page = Math.max(0,Math.min(pages-1,page));
   root.children = all.slice(page*pageSize,(page+1)*pageSize);
   return {nodes:[root,...root.children],grouped:true,page,pages,total:all.length};

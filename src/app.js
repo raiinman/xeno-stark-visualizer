@@ -2,9 +2,10 @@ import { layoutHologramNodes, drawHologram } from './hologram.js';
 import { createFilePreview } from './filePreview.js';
 import { createRepositoryExplorer } from './repositoryExplorer.js';
 import { buildGraphView, GRAPH_NODE_LIMIT, sanitizeNavigation, reconcileNavigation } from './graphView.js';
+import { readCachedView, cacheSelectedView } from './viewCache.js';
 // A cached pre-preview shell can meet newer scripts during a Pages rollout.
 // Migrate it once to a fresh shell, preserving the chosen repository query.
-if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('file-dock') || !document.getElementById('graph-navigation') || !document.getElementById('repository-explorer') || !document.getElementById('layout') || !document.querySelector('#theme option[value="fusion"]') || document.querySelector('#theme option[value="classic"]')) {
+if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('file-dock') || !document.getElementById('graph-title') || !document.getElementById('graph-detail') || !document.getElementById('graph-navigation') || !document.getElementById('repository-explorer') || !document.getElementById('layout') || !document.querySelector('#theme option[value="fusion"]') || document.querySelector('#theme option[value="classic"]')) {
   const fresh = new URL(location.href);
   const version = new URL(import.meta.url).searchParams.get('v') || 'command-deck-3';
   if (fresh.searchParams.get('_ui') !== version) {
@@ -18,6 +19,7 @@ if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document
 const $ = id => document.getElementById(id);
 const DEFAULT_REPO = 'raiinman/xeno-stark-visualizer';
 const validRepo = value => typeof value === 'string' && /^[\w.-]+\/[\w.-]+$/.test(value);
+const validCommitSha = value => typeof value === 'string' && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(value);
 const requestedRepo = new URL(location.href).searchParams.get('repo');
 const WORKSPACE_KEY = 'xeno-stark:workspace:v1';
 let savedWorkspace = {};
@@ -40,9 +42,11 @@ const initialNavigation = sanitizeNavigation(initialWorkspace.navigation);
 const finiteCamera = (value, fallback, low, high) => Number.isFinite(value) ? Math.max(low, Math.min(high, value)) : fallback;
 const state = {
   repo: initialRepo,
-  branch: 'main', commits: [], index: 0, files: [], nodes: [], trees: new Map(),
+  branch: 'main', commits: [], index: -1, files: [], nodes: [], trees: new Map(),
+  selectedCommitSha: validCommitSha(initialWorkspace.selectedCommitSha) ? initialWorkspace.selectedCommitSha : null,
   yaw: finiteCamera(camera.yaw, .45, -Math.PI * 2, Math.PI * 2), pitch: finiteCamera(camera.pitch, .55, -.9, .9),
-  zoom: finiteCamera(camera.zoom, 1, .45, 3.5), autoRotate: typeof camera.autoRotate === 'boolean' ? camera.autoRotate : true, query: initialNavigation.query, folder: initialNavigation.folder,
+  zoom: finiteCamera(camera.zoom, 1, .45, 3.5), autoRotate: typeof camera.autoRotate === 'boolean' ? camera.autoRotate : false, query: initialNavigation.query, folder: initialNavigation.folder,
+  expanded: initialNavigation.expanded,
   theme: ['fusion','jarvis','muthur'].includes(initialWorkspace.theme) ? initialWorkspace.theme : 'fusion',
   layoutMode: ['orbital','helix','hive'].includes(initialWorkspace.layoutMode) ? initialWorkspace.layoutMode : 'orbital', previewPath: null, previewTarget: null,
   graphPage: initialNavigation.page, restoringNavigation: true, graphView: null, fileListLimit: 100,
@@ -89,8 +93,8 @@ function drawDeckPreview(time) {
 function saveWorkspace() {
   clearTimeout(cameraSaveTimer);cameraDirty = false;
   const camera = { yaw: state.yaw % (Math.PI * 2), pitch: state.pitch, zoom: state.zoom, autoRotate: state.autoRotate };
-  const navigation = sanitizeNavigation({folder:state.folder,page:state.graphPage,query:state.query});
-  const saved = {version:2,theme:state.theme,layoutMode:state.layoutMode,camera,navigation};
+  const navigation = sanitizeNavigation({folder:state.folder,page:state.graphPage,query:state.query,expanded:state.expanded});
+  const saved = {version:2,theme:state.theme,layoutMode:state.layoutMode,camera,navigation,selectedCommitSha:state.selectedCommitSha};
   repoWorkspaces.set(state.repo.toLowerCase(),saved);
   try {
     localStorage.setItem(repoWorkspaceKey(state.repo), JSON.stringify(saved));
@@ -104,9 +108,11 @@ function restoreRepoWorkspace(repo) {
   state.layoutMode = ['orbital','helix','hive'].includes(saved.layoutMode) ? saved.layoutMode : 'orbital';
   state.yaw = finiteCamera(camera.yaw,.45,-Math.PI*2,Math.PI*2);state.pitch = finiteCamera(camera.pitch,.55,-.9,.9);state.zoom = finiteCamera(camera.zoom,1,.45,3.5);
   const navigation = sanitizeNavigation(saved.navigation);
-  state.folder = navigation.folder;state.graphPage = navigation.page;state.query = navigation.query;
+  state.folder = navigation.folder;state.graphPage = navigation.page;state.query = navigation.query;state.expanded = navigation.expanded;
+  state.selectedCommitSha = validCommitSha(saved.selectedCommitSha) ? saved.selectedCommitSha : null;
   document.body.dataset.theme = state.theme;$('theme').value = state.theme;$('layout').value = state.layoutMode;
-  setRotate((typeof camera.autoRotate === 'boolean' ? camera.autoRotate : true) && !reducedMotion.matches);
+  $('graph-detail').checked = state.expanded;
+  setRotate((typeof camera.autoRotate === 'boolean' ? camera.autoRotate : false) && !reducedMotion.matches);
   readPalette();
 }
 function saveCameraSoon() { cameraDirty = true;clearTimeout(cameraSaveTimer);cameraSaveTimer = setTimeout(saveWorkspace, 180); }
@@ -182,20 +188,20 @@ function updateHistory() {
   $('history').value = state.index;
   $('history').disabled = state.commits.length < 2;
   $('play-button').disabled = state.commits.length < 2;
-  $('latest-button').disabled = state.index === state.commits.length - 1 || !c;
+  $('latest-button').disabled = state.index === state.commits.length - 1 || !state.commits.length;
   $('history-position').textContent = c ? `${state.index + 1} / ${state.commits.length}` : '';
-  if (!c) return;
+  if (!c) { $('commit-link').textContent='Loading history…';$('commit-meta').textContent='';return; }
   $('commit-link').textContent = c.message;
   $('commit-link').title = c.message;
   $('commit-link').href = `https://github.com/${state.repo}/commit/${c.sha}`;
   const date = new Date(c.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  $('commit-meta').textContent = `${c.sha.slice(0, 7)} · by ${c.author} · ${date}${state.index === state.commits.length - 1 ? ' · latest' : ''}`;
-  $('data-source').textContent = `${state.source}. Showing up to 40 recent commits.`;
+  $('commit-meta').textContent = `Selected commit ${c.sha.slice(0, 7)} · ${date}${state.index === state.commits.length - 1 ? ' · latest' : ' · past version'}`;
+  $('commit-meta').title = `Commit by ${c.author}`;
+  $('data-source').textContent = `${state.source}. Recent history and your selected commit.`;
   explorer.update();
 }
 
 async function showCommit(index, { animate = true } = {}) {
-  if (filePreview.isOpen) filePreview.close();
   const version = state.version;
   const selection = ++state.selection;
   const clamped = Math.max(0, Math.min(index, state.commits.length - 1));
@@ -205,13 +211,16 @@ async function showCommit(index, { animate = true } = {}) {
   try {
     const files = await getTree(commit);
     if (version !== state.version || selection !== state.selection) return;
+    if (filePreview.isOpen) filePreview.close();
     const previous = new Map(state.files.map(f => [f.path, f.sha]));
     state.changed = new Set(animate ? files.filter(f => previous.get(f.path) !== f.sha).map(f => f.path) : []);
     state.changedAt = performance.now();
     state.files = files;
-    const navigation = reconcileNavigation({folder:state.folder,page:state.graphPage,query:state.query},files);
+    const navigation = reconcileNavigation({folder:state.folder,page:state.graphPage,query:state.query,expanded:state.expanded},files);
     state.folder = navigation.folder;state.graphPage = navigation.page;state.query = navigation.query;state.restoringNavigation = false;
     state.index = clamped;
+    state.selectedCommitSha = commit.sha;
+    cacheSelectedView(state.repo,commit.sha,state.commits,files,state.branch);
     state.hovered = null;
     $('tooltip').hidden = true;
     buildMap();
@@ -243,14 +252,27 @@ async function refresh({ first = false } = {}) {
     if (version !== state.version) return;
     const commits = data.map(normalizeCommit).reverse();
     if (!commits.length) throw new Error('This repository has no commits yet.');
-    const wasLatest = state.index === state.commits.length - 1;
     const oldSha = state.commits[state.index]?.sha;
     const oldLatest = state.commits.at(-1)?.sha;
+    const targetSha = state.selectedCommitSha || oldSha;
+    let restoredWarning = '';
+    if (targetSha && !commits.some(c=>c.sha === targetSha)) {
+      try {
+        const savedCommit = state.commits.find(c=>c.sha===targetSha) || normalizeCommit(await github(`commits/${targetSha}`));
+        if (savedCommit.sha !== targetSha) throw new Error('The saved commit could not be verified.');
+        commits.unshift(savedCommit);
+      } catch(error) {
+        if (!/\(404\)|not found/i.test(error.message)) throw error;
+        restoredWarning = 'Your saved commit is no longer available on GitHub. Showing the latest version.';
+      }
+    }
+    const kept = commits.findIndex(c=>c.sha === targetSha);
+    const next = kept >= 0 ? kept : commits.length-1;
     // Fetch before replacing visible history, so an API error keeps the snapshot usable.
-    await getTree(commits.at(-1));
+    await getTree(commits[next]);
     if (version !== state.version) return;
     if (selection !== state.selection) return;
-    if (oldLatest === commits.at(-1).sha && state.files.length) {
+    if (oldLatest === commits.at(-1).sha && oldSha === commits[next].sha && state.files.length) {
       state.source = 'Connected to GitHub';
       updateHistory();
       return;
@@ -258,17 +280,17 @@ async function refresh({ first = false } = {}) {
     state.commits = commits;
     state.source = 'Connected to GitHub';
     $('empty-state').hidden = true;
-    const kept = commits.findIndex(c => c.sha === oldSha);
-    const next = wasLatest || !oldSha ? commits.length - 1 : Math.max(0, kept);
-    await showCommit(next, { animate: oldLatest !== commits.at(-1).sha && !!oldLatest });
-    if (oldLatest && oldLatest !== commits.at(-1).sha) notice(wasLatest ? 'Repository updated. Changed files are highlighted.' : 'New commits available. Choose Latest to see them.');
+    if (oldSha === commits[next].sha && state.files.length) {state.index=next;cacheSelectedView(state.repo,state.selectedCommitSha,state.commits,state.files,state.branch);updateHistory();}
+    else await showCommit(next, { animate: oldLatest !== commits.at(-1).sha && !!oldLatest });
+    if (restoredWarning) notice(restoredWarning);
+    else if (oldLatest && oldLatest !== commits.at(-1).sha) notice('New commits available. Your selected version is preserved. Choose Latest to see the changes.');
   } catch (error) {
     if (version !== state.version) return;
     const message = error.message || 'Could not reach GitHub. Check your connection and try again.';
     if (state.files.length) {
-      state.source = 'Deployment snapshot (live GitHub updates unavailable)';
+      state.source = 'Saved view (live GitHub updates unavailable)';
       $('data-source').textContent = `${state.source}. ${message}`;
-      notice('Live updates unavailable. Showing the saved repository snapshot.');
+      notice('Live updates unavailable. Keeping your selected version.');
     } else {
       $('empty-message').textContent = message;
       $('empty-state').hidden = false;
@@ -295,11 +317,13 @@ async function loadRepository(repo) {
   saveWorkspace();
   state.loading = false;
   state.commits = [];
+  state.index = -1;
+  updateHistory();
   state.files = [];
   state.repositoryInfo = null;
   state.trees.clear();
   state.restoringNavigation = true;
-  state.index = 0;
+  state.index = -1;
   state.hovered = null;
   $('tooltip').hidden = true;
   $('search').value = state.query;
@@ -311,7 +335,13 @@ async function loadRepository(repo) {
   buildMap();
   $('map-status').textContent = 'Loading repository…';
   const version = state.version;
-  if (repo === DEFAULT_REPO) {
+  const cached = readCachedView(repo,state.selectedCommitSha);
+  if (cached) {
+    state.commits=cached.commits;if(typeof cached.branch==='string')state.branch=cached.branch;
+    state.trees.set(cached.selectedSha,cached.files);state.source='Saved view from this browser';repoHeader();
+    await showCommit(cached.commits.findIndex(c=>c.sha===cached.selectedSha),{animate:false});
+  }
+  if (repo === DEFAULT_REPO && !state.files.length) {
     try {
       const snapshotUrl = new URL('../public/data/repository.json', import.meta.url);
       const buildVersion = new URL(import.meta.url).searchParams.get('v');
@@ -326,7 +356,8 @@ async function loadRepository(repo) {
           state.source = 'Snapshot from the last site deployment';
           state.trees.set(snapshot.commits.at(-1).sha, snapshot.files);
           repoHeader();
-          await showCommit(snapshot.commits.length - 1, { animate: false });
+          const savedIndex = snapshot.commits.findIndex(c=>c.sha === state.selectedCommitSha);
+          if (!state.selectedCommitSha || savedIndex >= 0) await showCommit(savedIndex >= 0 ? savedIndex : snapshot.commits.length - 1, { animate: false });
         }
       }
     } catch { /* Live GitHub loading remains available if the build snapshot is missing. */ }
@@ -343,13 +374,13 @@ function matchingFiles() {
 
 function buildMap() {
   const files = matchingFiles();
-  state.graphView = buildGraphView(files,{folder:state.folder,name:state.repo.split('/')[1],page:state.graphPage});
+  state.graphView = buildGraphView(files,{folder:state.folder,name:state.repo.split('/')[1],page:state.graphPage,expanded:state.expanded});
   if (!state.restoringNavigation) state.graphPage = state.graphView.page;
   state.nodes = state.graphView.nodes;
   canvas.dataset.nodeCount = state.nodes.length;canvas.dataset.nodeLimit = GRAPH_NODE_LIMIT;
   layoutHologramNodes(state.nodes, state.layoutMode);
   updateMapStatus();
-  $('graph-navigation').hidden = !state.graphView.grouped && !state.folder;
+  $('graph-navigation').hidden = !state.folder && state.graphView.pages <= 1;
   $('graph-scope').textContent = state.folder ? `${state.folder}/` : 'Repository overview';
   $('graph-up').hidden = !state.folder;
   $('graph-prev').hidden = $('graph-next').hidden = state.graphView.pages <= 1;
@@ -358,6 +389,7 @@ function buildMap() {
   state.fileListLimit = 100;
   renderFileList(files);
   $('clear-filter').hidden = !state.folder && !state.query;
+  $('clear-filter').textContent = state.folder ? 'Back to root ×' : 'Clear search ×';
   $('empty-state').hidden = !!files.length || !state.files.length;
   if (!files.length && state.files.length) {
     $('empty-message').textContent = 'No matching files. Clear the search to see the full map.';
@@ -370,8 +402,10 @@ function buildMap() {
 
 function updateMapStatus() {
   const count = matchingFiles().length;
-  const scope = `${count.toLocaleString()} files${state.folder || state.query ? ` of ${state.files.length.toLocaleString()}` : ''}`;
-  $('map-status').textContent = state.files.length ? `${scope} · ${state.nodes.length} nodes shown${state.graphView?.grouped ? ' · folders show file counts' : ''}` : 'Loading repository…';
+  const folders = state.nodes.filter(n=>n.folder && n.parent).length, files = state.nodes.filter(n=>!n.folder).length;
+  $('graph-title').textContent = state.folder ? state.folder + '/' : state.repo;
+  $('graph-explanation').textContent = 'Center: current folder. Lines: its contents. Open a folder to explore or a file to read.';
+  $('map-status').textContent = state.files.length ? `${folders} folders · ${files} files shown · ${count.toLocaleString()} files ${state.query ? 'matching' : 'inside'}` : 'Loading repository…';
 }
 
 function fileUrl(file) {
@@ -520,7 +554,7 @@ canvas.addEventListener('wheel',event=>{
 },{passive:false});
 function zoom(factor) {state.zoom=Math.max(.45,Math.min(3.5,state.zoom*factor));dirty=true;saveCameraSoon();}
 function setRotate(value) {state.autoRotate=value;$('rotate-button').setAttribute('aria-pressed',String(value));$('rotate-button').setAttribute('aria-label',`${value?'Stop':'Start'} automatic rotation`);dirty=true;saveCameraSoon();}
-function resetCamera() {state.yaw=.45;state.pitch=.55;state.zoom=1;setRotate(!reducedMotion.matches);dirty=true;}
+function resetCamera() {state.yaw=.45;state.pitch=.55;state.zoom=1;setRotate(false);dirty=true;}
 
 function panel(name, open, returnFocus = false) {
   for (const other of ['files','settings']) {
@@ -537,6 +571,7 @@ for (const name of ['files','settings']) {
 $('zoom-in').onclick=()=>zoom(1.18);
 $('zoom-out').onclick=()=>zoom(1/1.18);
 $('reset-button').onclick=resetCamera;
+$('graph-detail').onchange=event=>{state.expanded=event.target.checked;state.graphPage=0;buildMap();};
 $('rotate-button').onclick=()=>setRotate(!state.autoRotate);
 $('labels').onchange=()=>{dirty=true;};
 $('theme').onchange=event=>setTheme(event.target.value);
@@ -587,6 +622,7 @@ core.onload=()=>{dirty=true;};
 document.body.dataset.theme = state.theme;
 $('theme').value = state.theme;
 $('layout').value = state.layoutMode;
+$('graph-detail').checked = state.expanded;
 setRotate(state.autoRotate && !reducedMotion.matches);
 readPalette();
 resize();

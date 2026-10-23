@@ -5,7 +5,7 @@ import {layoutHologramNodes} from './hologram.js';
 
 test('small maps retain complete real hierarchy',()=>{
   const files=[{path:'README.md'},{path:'src/app.js'},{path:'src/nested/module.js'}];
-  const view=buildGraphView(files);
+  const view=buildGraphView(files,{expanded:true});
   assert.equal(view.grouped,false);
   assert.deepEqual(view.nodes.filter(n=>!n.folder).map(n=>n.path),files.map(f=>f.path));
   assert.equal(view.nodes.find(n=>n.path==='src/nested/module.js').parent.path,'src/nested');
@@ -46,14 +46,20 @@ test('deep paths cannot evade the cap through their ancestor folders',()=>{
   assert.deepEqual(buildGraphView([]).nodes,[]);
 });
 test('saved navigation validates folder, page, and search without rejecting real folder names',()=>{
-  assert.deepEqual(sanitizeNavigation({folder:'skills/3d-and-web',page:3,query:'  Skill.MD '}),{folder:'skills/3d-and-web',page:3,query:'skill.md'});
+  assert.deepEqual(sanitizeNavigation({folder:'skills/3d-and-web',page:3,query:'  Skill.MD '}),{folder:'skills/3d-and-web',page:3,query:'skill.md',expanded:false});
   for(const folder of ['../outside','/absolute','src//nested','src/./nested',[],null]) assert.equal(sanitizeNavigation({folder}).folder,'');
   for(const page of [-1,NaN,Infinity,1.5,'2']) assert.equal(sanitizeNavigation({page}).page,0);
-  assert.deepEqual(sanitizeNavigation(null),{folder:'',page:0,query:''});
+  assert.deepEqual(sanitizeNavigation(null),{folder:'',page:0,query:'',expanded:false});
 });
 test('removed folders restore to the nearest surviving ancestor and reset the page',()=>{
   const files=[{path:'src/remaining/file.js'}];
-  assert.deepEqual(reconcileNavigation({folder:'src/deleted/nested',page:3,query:'file'},files),{folder:'src',page:0,query:'file'});
-  assert.deepEqual(reconcileNavigation({folder:'src/remaining',page:3},files),{folder:'src/remaining',page:3,query:''});
-  assert.deepEqual(reconcileNavigation({folder:'gone',page:2},files),{folder:'',page:0,query:''});
+  assert.deepEqual(reconcileNavigation({folder:'src/deleted/nested',page:3,query:'file'},files),{folder:'src',page:0,query:'file',expanded:false});
+  assert.deepEqual(reconcileNavigation({folder:'src/remaining',page:3},files),{folder:'src/remaining',page:3,query:'',expanded:false});
+  assert.deepEqual(reconcileNavigation({folder:'gone',page:2},files),{folder:'',page:0,query:'',expanded:false});
+});
+test('default overview explains immediate contents instead of flattening every level',()=>{
+  const view=buildGraphView([{path:'README.md'},{path:'src/app.js'},{path:'src/nested/file.js'}]);
+  assert.equal(view.nodes.length,3);
+  assert.equal(view.nodes.find(n=>n.path==='src').fileCount,2);
+  assert.equal(view.nodes.some(n=>n.path==='src/app.js'),false);
 });
