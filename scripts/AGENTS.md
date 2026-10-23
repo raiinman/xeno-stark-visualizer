@@ -10,6 +10,8 @@
 
 Keep snapshot generation dependency-free, using Node.js built-ins and argument-based Git subprocess calls. Read committed files and up to 40 real commits. The deployment checkout must include history (`fetch-depth: 0`). Generated snapshots and `dist/` stay ignored by Git.
 
+Version the built shell's CSS/module URLs and relative module imports with the commit SHA so Pages caches cannot mix releases. Keep source files unversioned for local development.
+
 ## Verification
 
 Run `node scripts/snapshot.mjs --site`; parse `dist/public/data/repository.json`, compare its latest SHA and file listing with Git, and confirm `dist/index.html`, `dist/src/app.js`, and artwork exist.

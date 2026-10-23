@@ -1,5 +1,17 @@
 import { layoutHologramNodes, drawHologram } from './hologram.js';
 import { createFilePreview } from './filePreview.js';
+// A cached pre-preview shell can meet newer scripts during a Pages rollout.
+// Migrate it once to a fresh shell, preserving the chosen repository query.
+if (!document.getElementById('file-preview') || !document.getElementById('layout')) {
+  const fresh = new URL(location.href);
+  const version = new URL(import.meta.url).searchParams.get('v') || 'projection-1';
+  if (fresh.searchParams.get('_ui') !== version) {
+    fresh.searchParams.set('_ui', version);
+    location.replace(fresh.href);
+  } else {
+    document.getElementById('map-status').textContent = 'A new version is available. Refresh this page to load it.';
+  }
+} else {
 // Xeno-Stark: a repository map, with GitHub as the source of truth.
 const $ = id => document.getElementById(id);
 const DEFAULT_REPO = 'raiinman/xeno-stark-visualizer';
@@ -210,7 +222,10 @@ async function loadRepository(repo) {
   const version = state.version;
   if (repo === DEFAULT_REPO) {
     try {
-      const response = await fetch(new URL('../public/data/repository.json', import.meta.url), { signal: AbortSignal.timeout(8000) });
+      const snapshotUrl = new URL('../public/data/repository.json', import.meta.url);
+      const buildVersion = new URL(import.meta.url).searchParams.get('v');
+      if (buildVersion) snapshotUrl.searchParams.set('v', buildVersion);
+      const response = await fetch(snapshotUrl, { signal: AbortSignal.timeout(8000) });
       if (response.ok) {
         const snapshot = await response.json();
         if (version !== state.version) return;
@@ -475,3 +490,5 @@ readPalette();
 resize();
 requestAnimationFrame(frame);
 loadRepository(state.repo);
+
+}

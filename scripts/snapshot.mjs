@@ -18,8 +18,25 @@ const out = path.resolve('public/data');
 mkdirSync(out, { recursive: true });
 writeFileSync(path.join(out, 'repository.json'), JSON.stringify({ repo, branch, commits, files }));
 if (process.argv.includes('--site')) {
+  const version = commits.at(-1).sha.slice(0, 12);
   mkdirSync('dist', { recursive: true });
   for (const file of ['index.html', 'src', 'public']) cpSync(file, path.join('dist', file), { recursive: true });
+  // Pages caches for ten minutes. Tie the shell, styles, and module graph to this build.
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const indexPath = path.join('dist', 'index.html');
+  const index = readFileSync(indexPath, 'utf8').replace(/(src\/styles\.css|src\/app\.js)(["'])/g, `$1?v=${version}$2`);
+  writeFileSync(indexPath, index);
+  function versionModules(directory) {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const file = path.join(directory, entry.name);
+      if (entry.isDirectory()) versionModules(file);
+      else if (entry.name.endsWith('.js')) {
+        const code = readFileSync(file, 'utf8').replace(/(from\s+['"])(\.[^'"]+\.js)(['"])/g, `$1$2?v=${version}$3`);
+        writeFileSync(file, code);
+      }
+    }
+  }
+  versionModules(path.join('dist', 'src'));
   writeFileSync('dist/.nojekyll', '');
 }
 console.log(`Snapshot: ${files.length} real files, ${commits.length} recent commits.`);

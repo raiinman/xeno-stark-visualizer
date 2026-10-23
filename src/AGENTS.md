@@ -12,6 +12,7 @@
 
 - Summon the holographic preview from node and Files clicks. Fetch immutable raw content at the selected commit SHA; retain Open on GitHub as a secondary link. Insert source text with DOM text APIs; keep HTML and scripts inert. Bound text/image sizes and cancel stale requests.
 - Preserve the current graph on API failure. Guard async requests so an old repository or timeline selection cannot replace a newer one.
+- A cached pre-preview HTML shell must migrate once to a fresh shell before initializing. Keep the query's repository selection and avoid reload loops.
 - Real folder structure determines edges. Hover and Files expose full paths when labels collide.
 - The viewer uses native dialog focus trapping and Escape dismissal. Pause orbit while it is open and keep the graph visible behind it.
 - Match the original slow automatic orbit by default. Pause orbit when a node is hovered, stop it during manual drag, and respect reduced motion. Audio stays off. Support wheel, pinch, and native file links.
