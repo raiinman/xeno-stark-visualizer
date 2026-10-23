@@ -64,6 +64,24 @@ function colorFor(node, theme) {
   return ['#ffb800','#00f0ff','#39ff14','#38bdf8','#b481ff','#ff637c'][index % 6];
 }
 
+// Sample displayed coordinates so interrupted transitions never jump.
+export function nodePose(node,index,state,time,motion=true){
+  if(!motion)return {...node,t:1,pop:1};
+  const transition=state.transition;
+  if(transition){
+    const t=Math.max(0,Math.min(1,(time-transition.at)/transition.duration));
+    const ease=t*t*t*(t*(t*6-15)+10),from=transition.from.get(node.path);
+    const origin=from || {x:0,y:-.12,z:0,pop:0};
+    return {x:origin.x+(node.x-origin.x)*ease,y:origin.y+(node.y-origin.y)*ease,z:origin.z+(node.z-origin.z)*ease,
+      t:from?1:t,pop:from?origin.pop+(1-origin.pop)*ease:Math.max(0,1+2.2*Math.pow(t-1,3)+1.2*Math.pow(t-1,2))};
+  }
+  const age=Number.isFinite(state.entranceAt)?Math.max(0,time-state.entranceAt):10000;
+  const delay=node.parent?650+(index-1)/Math.max(1,state.nodes.length-2)*3200:0;
+  const t=Math.max(0,Math.min(1,(age-delay)/1200));
+  const ease=1-Math.pow(1-t,4),twist=(1-ease)*1.2,radius=.15+.85*ease;
+  return {t,pop:t===1?1:1+2.2*Math.pow(t-1,3)+1.2*Math.pow(t-1,2),x:(node.x*Math.cos(twist)-node.z*Math.sin(twist))*radius,y:node.y*radius-(1-ease)*.25,z:(node.x*Math.sin(twist)+node.z*Math.cos(twist))*radius};
+}
+
 export function drawHologram({ctx, width, height, state, core, palette, time, motion, labels}) {
   ctx.clearRect(0, 0, width, height);
   if (!state.nodes.length) return [];
@@ -74,16 +92,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
   const clock = motion ? time : 0;
   const age=motion && Number.isFinite(state.entranceAt)?Math.max(0,time-state.entranceAt):10000;
   const ignition=Math.min(1,age/1100);
-  const arrival=new Map(state.nodes.map((node,index)=>{
-    const delay=node.parent?650+(index-1)/Math.max(1,state.nodes.length-2)*3200:0;
-    const t=Math.max(0,Math.min(1,(age-delay)/1200));
-    const ease=1-Math.pow(1-t,4), twist=(1-ease)*1.2;
-    const radius=.15+.85*ease;
-    return [node,{t,pop:t===1?1:1+2.2*Math.pow(t-1,3)+1.2*Math.pow(t-1,2),
-      x:(node.x*Math.cos(twist)-node.z*Math.sin(twist))*radius,
-      y:node.y*radius-(1-ease)*.25,
-      z:(node.x*Math.sin(twist)+node.z*Math.cos(twist))*radius}];
-  }));
+  const arrival=new Map(state.nodes.map((node,index)=>[node,nodePose(node,index,state,time,motion)]));
   const plotTop = labels ? (width<600?165:145) : 24, plotHeight = Math.max(100,height-plotTop-(labels?65:24));
   const unit = Math.max(35, Math.min(width * .30, plotHeight * .43)) * state.zoom * (state.layoutMode === 'helix' ? .82 : 1);
   const distance = 3.6;
@@ -200,6 +209,20 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
     }
   });
 
+  // Removed nodes dissolve without remaining interactive.
+  if(motion && state.transition){
+    const progress=Math.max(0,Math.min(1,(time-state.transition.at)/state.transition.duration));
+    if(progress<1){
+      const paths=new Set(state.nodes.map(n=>n.path));
+      for(const [path,old] of state.transition.from){
+        if(paths.has(path))continue;
+        const p=project(old),color=colorFor(old.node,theme);
+        ctx.save();ctx.globalAlpha=(1-progress)*(1-progress);ctx.strokeStyle=color;ctx.fillStyle=color;ctx.shadowColor=color;ctx.shadowBlur=12;
+        ctx.beginPath();ctx.arc(p.x,p.y,7+progress*20,0,TAU);ctx.stroke();
+        ctx.beginPath();ctx.arc(p.x,p.y,Math.max(.1,5*(1-progress)),0,TAU);ctx.fill();ctx.restore();
+      }
+    }
+  }
   const labelCandidates=[];
   for(const p of [...projections].sort((a,b)=>b.depth-a.depth)) {
     const n=p.node;

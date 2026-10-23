@@ -43,3 +43,6 @@ Run `node --check src/app.js` and `node --test src/graphView.test.js src/viewCac
 
 - History now autoplays from the oldest available commit after repository loading, loops after the latest, and holds each version for 6.5 seconds so the five-second assembly can settle. Manual history selection, opening a file, pause, background tabs, and failures stop playback. Use a playback generation guard to prevent stale async timers. Reduced-motion visitors start paused. The explicit autoplay behavior supersedes restoring the selected commit as the initial resting view; manual selections are still saved.
 - Commit changes replay the spiral/pop assembly. Lens colors must apply to page surfaces, panels, chamber illumination, file windows and the command deck as well as graph glyphs and text.
+
+- Playback speed (0.25, 0.5, 1 or 2) is saved per repository with workspace preferences; default 1. Speed controls commit dwell time and the next transition duration. Changes while playing reschedule the pending tick.
+- History transitions preserve nodes by path and interpolate from their displayed positions with smooth easing. Only new nodes pop in; removed nodes dissolve without hit targets. Sample interrupted transitions before starting the next; never replay the full ignition for every commit. Reduced motion lands immediately.

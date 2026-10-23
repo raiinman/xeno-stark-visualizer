@@ -1,4 +1,4 @@
-import { layoutHologramNodes, drawHologram } from './hologram.js';
+import { layoutHologramNodes, drawHologram, nodePose } from './hologram.js';
 import { createFilePreview } from './filePreview.js';
 import { createRepositoryExplorer } from './repositoryExplorer.js';
 import { buildGraphView, GRAPH_NODE_LIMIT, sanitizeNavigation, reconcileNavigation } from './graphView.js';
@@ -6,7 +6,7 @@ import { readCachedView, cacheSelectedView } from './viewCache.js';
 import { createWalkthrough } from './walkthrough.js';
 // A cached pre-preview shell can meet newer scripts during a Pages rollout.
 // Migrate it once to a fresh shell, preserving the chosen repository query.
-if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('file-dock') || !document.getElementById('help-button') || !document.getElementById('walkthrough') || !document.getElementById('graph-title') || !document.getElementById('graph-detail') || !document.getElementById('graph-navigation') || !document.getElementById('repository-explorer') || !document.getElementById('layout') || !document.querySelector('#theme option[value="fusion"]') || document.querySelector('#theme option[value="classic"]')) {
+if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('file-dock') || !document.getElementById('playback-speed') || !document.getElementById('help-button') || !document.getElementById('walkthrough') || !document.getElementById('graph-title') || !document.getElementById('graph-detail') || !document.getElementById('graph-navigation') || !document.getElementById('repository-explorer') || !document.getElementById('layout') || !document.querySelector('#theme option[value="fusion"]') || document.querySelector('#theme option[value="classic"]')) {
   const fresh = new URL(location.href);
   const version = new URL(import.meta.url).searchParams.get('v') || 'command-deck-3';
   if (fresh.searchParams.get('_ui') !== version) {
@@ -51,6 +51,7 @@ const state = {
   theme: ['fusion','jarvis','muthur'].includes(initialWorkspace.theme) ? initialWorkspace.theme : 'fusion',
   layoutMode: ['orbital','helix','hive'].includes(initialWorkspace.layoutMode) ? initialWorkspace.layoutMode : 'orbital', previewPath: null, previewTarget: null,
   graphPage: initialNavigation.page, restoringNavigation: true, graphView: null, fileListLimit: 100,
+  playbackSpeed: [0.25,0.5,1,2].includes(initialWorkspace.playbackSpeed)?initialWorkspace.playbackSpeed:1,
   hovered: null, playing: false, loading: false, version: 0, selection: 0,
   changed: new Set(), changedAt: 0, source: '', noticeTimer: null
 };
@@ -61,7 +62,7 @@ const core = new Image();
 core.src = new URL('../public/assets/arc-xeno-core.jpg', import.meta.url).href;
 let width = 0, height = 0, projections = [], lastFrame = 0, dirty = true;
 let palette = {};
-let playTimer, playbackRun=0;
+let playTimer, playbackRun=0, playbackStep=null, playbackPending=false;
 let cameraDirty = false, cameraSaveTimer;
 const filePreview = createFilePreview({
   getContext: () => ({ repo: state.repo, sha: state.commits[state.index]?.sha }),
@@ -95,7 +96,7 @@ function saveWorkspace() {
   clearTimeout(cameraSaveTimer);cameraDirty = false;
   const camera = { yaw: state.yaw % (Math.PI * 2), pitch: state.pitch, zoom: state.zoom, autoRotate: state.autoRotate };
   const navigation = sanitizeNavigation({folder:state.folder,page:state.graphPage,query:state.query,expanded:state.expanded});
-  const saved = {version:2,theme:state.theme,layoutMode:state.layoutMode,camera,navigation,selectedCommitSha:state.selectedCommitSha};
+  const saved = {version:2,playbackSpeed:state.playbackSpeed,theme:state.theme,layoutMode:state.layoutMode,camera,navigation,selectedCommitSha:state.selectedCommitSha};
   repoWorkspaces.set(state.repo.toLowerCase(),saved);
   try {
     localStorage.setItem(repoWorkspaceKey(state.repo), JSON.stringify(saved));
@@ -105,6 +106,8 @@ function saveWorkspace() {
 }
 function restoreRepoWorkspace(repo) {
   const saved = readRepoWorkspace(repo), camera = saved.camera || {};
+  state.playbackSpeed=[0.25,0.5,1,2].includes(saved.playbackSpeed)?saved.playbackSpeed:1;
+  $('playback-speed').value=String(state.playbackSpeed);
   state.theme = ['fusion','jarvis','muthur'].includes(saved.theme) ? saved.theme : 'fusion';
   state.layoutMode = ['orbital','helix','hive'].includes(saved.layoutMode) ? saved.layoutMode : 'orbital';
   state.yaw = finiteCamera(camera.yaw,.45,-Math.PI*2,Math.PI*2);state.pitch = finiteCamera(camera.pitch,.55,-.9,.9);state.zoom = finiteCamera(camera.zoom,1,.45,3.5);
@@ -216,7 +219,7 @@ async function showCommit(index, { animate = true } = {}) {
     const previous = new Map(state.files.map(f => [f.path, f.sha]));
     state.changed = new Set(animate ? files.filter(f => previous.get(f.path) !== f.sha).map(f => f.path) : []);
     state.changedAt = performance.now();
-    if(animate)state.entranceAt=state.changedAt;
+
     state.files = files;
     const navigation = reconcileNavigation({folder:state.folder,page:state.graphPage,query:state.query,expanded:state.expanded},files);
     state.folder = navigation.folder;state.graphPage = navigation.page;state.query = navigation.query;state.restoringNavigation = false;
@@ -375,6 +378,8 @@ function matchingFiles() {
 }
 
 function buildMap() {
+  const now=performance.now();
+  const previous=state.entranceRepo===state.repo?new Map(state.nodes.map((node,index)=>[node.path,{...nodePose(node,index,state,now,!reducedMotion.matches),node}])):new Map();
   const files = matchingFiles();
   state.graphView = buildGraphView(files,{folder:state.folder,name:state.repo.split('/')[1],page:state.graphPage,expanded:state.expanded});
   if (!state.restoringNavigation) state.graphPage = state.graphView.page;
@@ -385,6 +390,7 @@ function buildMap() {
   }
   canvas.dataset.nodeCount = state.nodes.length;canvas.dataset.nodeLimit = GRAPH_NODE_LIMIT;
   layoutHologramNodes(state.nodes, state.layoutMode);
+  state.transition=previous.size?{from:previous,at:now,duration:2600/state.playbackSpeed}:null;
   updateMapStatus();
   $('graph-navigation').hidden = !state.folder && state.graphView.pages <= 1;
   $('graph-scope').textContent = state.folder ? `${state.folder}/` : 'Repository overview';
@@ -599,21 +605,28 @@ $('retry-button').onclick=()=>loadRepository(state.repo);
 $('history').oninput=event=>{stopPlayback();showCommit(Number(event.target.value));};
 $('latest-button').onclick=()=>{stopPlayback();showCommit(state.commits.length-1);};
 function openFile(file){stopPlayback();filePreview.open(file);}
-function stopPlayback(){state.selection++;playbackRun++;clearTimeout(playTimer);state.playing=false;$('play-button').setAttribute('aria-label','Play recent commit history');$('play-button').innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg>';}
+function stopPlayback(){state.selection++;playbackRun++;clearTimeout(playTimer);playbackStep=null;state.playing=false;$('play-button').setAttribute('aria-label','Play recent commit history');$('play-button').innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg>';}
 async function startPlayback(fromStart=false){
   if(state.playing || state.commits.length<2)return;
   const run=++playbackRun;
   state.playing=true;
   $('play-button').setAttribute('aria-label','Pause history');
   $('play-button').innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>';
+  playbackPending=true;
   if(fromStart || state.index===state.commits.length-1)await showCommit(0);
+  if(run===playbackRun)playbackPending=false;
   async function step(){
     if(!state.playing || run!==playbackRun)return;
+    playbackPending=true;
     await showCommit((state.index+1)%state.commits.length);
-    if(state.playing && run===playbackRun)playTimer=setTimeout(step,6500);
+    if(run===playbackRun)playbackPending=false;
+    if(state.playing && run===playbackRun)playTimer=setTimeout(step,6500/state.playbackSpeed);
   }
-  if(state.playing && run===playbackRun)playTimer=setTimeout(step,6500);
+  playbackStep=step;
+  if(state.playing && run===playbackRun)playTimer=setTimeout(step,6500/state.playbackSpeed);
 }
+$('playback-speed').value=String(state.playbackSpeed);
+$('playback-speed').onchange=event=>{state.playbackSpeed=Number(event.target.value);saveWorkspace();if(state.playing&&playbackStep&&!playbackPending){clearTimeout(playTimer);playTimer=setTimeout(playbackStep,6500/state.playbackSpeed);}};
 $('play-button').onclick=()=>state.playing?stopPlayback():startPlayback();
 document.addEventListener('keydown',event=>{
   if (event.target.closest('.holo-page')) return;
