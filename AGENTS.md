@@ -7,6 +7,7 @@ Xeno-Stark is a GitHub Pages file visualizer. Keep the graph visible immediately
 - Keep the header and history strip compact. Secondary controls belong in the existing drawers.
 - File-node clicks summon a floating holographic preview of that file at the selected real commit. Files uses the same preview; Open on GitHub remains a secondary action.
 - Multiple file windows must remain open together, draggable and resizable over the graph. Wrap long lines by default and preserve side-by-side tiling and individual close controls.
+- Remember each repository's open windows and layout in this browser across refreshes. Closing panes updates the saved layout; restoring to a smaller viewport keeps panes reachable.
 - Show actual repository files and history. Folder connections represent hierarchy; dependency claims require measured import data.
 - Preserve the original luminous hexagonal nodes, 3D orbital clusters, gimbal rings, tendrils, and Orbital/Helix/Hive layouts. Keep readable file names, keyboard access, and reduced-motion behavior.
 - Retain the MIT license and original artwork. Use the original chamber behind the graph, while keeping unrelated dashboard panels out of the viewport.

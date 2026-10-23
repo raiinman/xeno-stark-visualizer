@@ -16,6 +16,7 @@
 - Real folder structure determines edges. Hover and Files expose full paths when labels collide.
 - File panes are nonmodal so users can open several files and still operate the graph. Each pane owns its request and geometry. Focus brings it forward; Escape dismisses the focused pane. History/repository changes close all panes. Preserve graph orbit pause while panes are open.
 - Wrap source lines by default, including long tokens. Provide a per-pane Wrap toggle, title-bar drag, edge/corner resize, maximize/restore, Tile files, and keyboard arrow controls for title bars and resize grips. Clamp panes to the workspace after viewport changes.
+- Save open panes, immutable commit references, geometry, stacking order, wrapping, and maximize/restore state in browser localStorage per repository. Debounce moves and flush on pagehide. Restore once after initial data loading, without overwriting saved layouts during startup or repository transitions. Validate stored records and tolerate unavailable storage.
 - Match the original slow automatic orbit by default. Pause orbit when a node is hovered, stop it during manual drag, and respect reduced motion. Audio stays off. Support wheel, pinch, and native file links.
 - Full-screen inspection must leave the graph visible without document scrolling. Drawers are optional, dismissible overlays.
 

@@ -198,7 +198,7 @@ async function refresh({ first = false } = {}) {
 }
 
 async function loadRepository(repo) {
-  filePreview.close();
+  filePreview.close({ preserve: true });
   stopPlayback();
   state.version++;
   state.selection++;
@@ -241,7 +241,10 @@ async function loadRepository(repo) {
       }
     } catch { /* Live GitHub loading remains available if the build snapshot is missing. */ }
   }
-  if (version === state.version) await refresh({ first: true });
+  if (version === state.version) {
+    await refresh({ first: true });
+    if (version === state.version) filePreview.restore();
+  }
 }
 
 function matchingFiles() {

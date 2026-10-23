@@ -11,6 +11,62 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
   const windows = new Map();
   let active = null, layer = 40, serial = 0, manuallyArranged = false;
   const clamp = (n, low, high) => Math.max(low, Math.min(high, n));
+  let storageRepo = getContext().repo, saveTimer, ready = false, restoring = false;
+  const storageKey = repo => `xeno-stark:windows:v1:${repo.toLowerCase()}`;
+  const validRect = rect => rect && ['x','y','w','h'].every(k => Number.isFinite(rect[k])) && rect.w > 0 && rect.h > 0;
+
+  function saveNow() {
+    clearTimeout(saveTimer);
+    if (!ready || restoring) return;
+    try {
+      const panes = [...windows.values()].sort((a,b) => Number(a.element.style.zIndex) - Number(b.element.style.zIndex)).map(win => ({
+        file: { path: win.file.path, size: win.file.size, type: win.file.type },
+        context: win.context, rect: win.rect, restore: win.restore,
+        wrapped: !win.element.classList.contains('no-wrap')
+      }));
+      localStorage.setItem(storageKey(storageRepo), JSON.stringify({ version: 1, panes, manuallyArranged }));
+    } catch { /* Restricted or full browser storage must not break the viewer. */ }
+  }
+  function saveSoon() {
+    if (!ready || restoring) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 150);
+  }
+  function restore() {
+    clearTimeout(saveTimer);
+    storageRepo = getContext().repo;
+    ready = true;
+    // Do not replace panes opened by the user while repository data was loading.
+    if (windows.size) return;
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem(storageKey(storageRepo))); }
+    catch { return; }
+    if (saved?.version !== 1 || !Array.isArray(saved.panes)) return;
+    restoring = true;
+    try {
+      for (const entry of saved.panes.slice(-30)) {
+        const { file, context, rect } = entry || {};
+        if (!file || typeof file.path !== 'string' || !file.path || file.path.length > 2000 || file.path.startsWith('/') || file.path.split('/').some(p => !p || p === '.' || p === '..')) continue;
+        if (typeof context?.repo !== 'string' || context.repo.toLowerCase() !== storageRepo.toLowerCase() || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(context.sha || '') || !validRect(rect)) continue;
+        const safeFile = { path: file.path, size: Math.max(0, Number(file.size) || 0), type: file.type === 'commit' ? 'commit' : 'blob' };
+        const safeContext = { repo: storageRepo, sha: context.sha };
+        const key = `${storageRepo}/${context.sha}/${file.path}`;
+        if (windows.has(key)) continue;
+        const win = createPane(safeFile, safeContext, key);
+        win.element.classList.add('settled');
+        geometry(win, validRect(entry.restore) ? bounds() : rect);
+        win.restore = validRect(entry.restore) ? fit(entry.restore) : null;
+        win.view('maximize').setAttribute('aria-label', win.restore ? 'Restore window size' : 'Maximize window');
+        win.element.classList.toggle('no-wrap', entry.wrapped === false);
+        win.view('wrap').setAttribute('aria-pressed', String(entry.wrapped !== false));
+        focus(win);
+      }
+      manuallyArranged = saved.manuallyArranged === true;
+      tileButton.hidden = windows.size < 2;
+    } finally { restoring = false; }
+  }
+  window.addEventListener('pagehide', saveNow);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) saveNow(); });
 
   function bounds() {
     const r = workspace.getBoundingClientRect();
@@ -26,6 +82,7 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     win.rect = fit(rect);
     Object.assign(win.element.style, { left: `${win.rect.x}px`, top: `${win.rect.y}px`, width: `${win.rect.w}px`, height: `${win.rect.h}px` });
     onGeometryChange();
+    saveSoon();
   }
   function focus(win, keyboard = false) {
     active = win;
@@ -34,6 +91,7 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     tileButton.style.zIndex = layer + 1;
     onOpen(win.file);
     if (keyboard) win.element.querySelector('.preview-header').focus({ preventScroll: true });
+    saveSoon();
   }
   function dismiss(win, restoreFocus = true) {
     win.cancel();
@@ -47,12 +105,17 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     }
     if (!windows.size) manuallyArranged = false;
     onGeometryChange();
+    saveSoon();
   }
-  function close() {
-    if (!windows.size) return;
+  function close({ preserve = false } = {}) {
+    if (preserve) saveNow();
+    clearTimeout(saveTimer);
+    if (!windows.size) { if (preserve) ready = false; return; }
     for (const win of windows.values()) { win.cancel(); win.element.remove(); }
     windows.clear();active = null;manuallyArranged = false;tileButton.hidden = true;
     onClose();onGeometryChange();
+    if (preserve) ready = false;
+    else saveNow();
   }
   function tile() {
     const b = bounds(), count = windows.size;
@@ -131,6 +194,7 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     view('wrap').onclick = () => {
       const wrapped = pane.classList.toggle('no-wrap') === false;
       view('wrap').setAttribute('aria-pressed', String(wrapped));
+      saveSoon();
     };
     view('retry').onclick = () => load(file, context);
     pane.addEventListener('pointerdown', () => focus(win));
@@ -287,6 +351,8 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
   function open(file) {
     const context = getContext();
     if (!context.sha) return;
+    if (storageRepo !== context.repo) { clearTimeout(saveTimer); storageRepo = context.repo; }
+    ready = true;
     const key = `${context.repo}/${context.sha}/${file.path}`;
     let win = windows.get(key);
     if (!win) {
@@ -306,5 +372,5 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
       event.preventDefault();event.stopImmediatePropagation();dismiss(active);
     }
   }, true);
-  return { open, close, get isOpen() { return windows.size > 0; }, get activeWindow() { return active?.element || null; } };
+  return { open, close, restore, get isOpen() { return windows.size > 0; }, get activeWindow() { return active?.element || null; } };
 }
