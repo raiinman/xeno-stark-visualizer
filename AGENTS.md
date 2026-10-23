@@ -8,6 +8,8 @@ Xeno-Stark is a GitHub Pages file visualizer. Keep the graph visible immediately
 - File-node clicks summon a floating holographic preview of that file at the selected real commit. Files uses the same preview; Open on GitHub remains a secondary action.
 - Multiple file windows must remain open together, draggable and resizable over the graph. Wrap long lines by default and preserve side-by-side tiling and individual close controls.
 - Remember the selected repository, theme, and graph topology in browser storage. Explicit repo links override the saved selection. Ordinary wheel and vertical touch gestures scroll the page; Ctrl/Command plus wheel and zoom buttons zoom the graph.
+- Remember camera yaw, pitch, zoom, and automatic rotation too. Preserve the camera while repository data loads and flush its latest state when leaving the page.
+- Sector clusters browse and search actual files in place. Only an explicit Focus in graph action navigates upward. Lens/topology changes have a live preview beside their controls. Keep GitHub metadata tied to the selected repository, with authorship labeled separately from app branding.
 - Remember each repository's open windows and layout in this browser across refreshes. Closing panes updates the saved layout; restoring to a smaller viewport keeps panes reachable.
 - Minimize file panes into the small graph dock without closing or losing their geometry. Show graph minimizes all visible panes. Persist docked state with the window layout.
 - Show actual repository files and history. Folder connections represent hierarchy; dependency claims require measured import data.

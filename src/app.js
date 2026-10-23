@@ -24,10 +24,13 @@ try {
   const saved = JSON.parse(localStorage.getItem(WORKSPACE_KEY));
   if (saved?.version === 1) savedWorkspace = saved;
 } catch { /* Browser storage is optional. */ }
+const camera = savedWorkspace.camera || {};
+const finiteCamera = (value, fallback, low, high) => Number.isFinite(value) ? Math.max(low, Math.min(high, value)) : fallback;
 const state = {
   repo: validRepo(requestedRepo || '') ? requestedRepo : validRepo(savedWorkspace.repo || '') ? savedWorkspace.repo : DEFAULT_REPO,
   branch: 'main', commits: [], index: 0, files: [], nodes: [], trees: new Map(),
-  yaw: 0.45, pitch: 0.55, zoom: 1, autoRotate: true, query: '', folder: '',
+  yaw: finiteCamera(camera.yaw, .45, -Math.PI * 2, Math.PI * 2), pitch: finiteCamera(camera.pitch, .55, -.9, .9),
+  zoom: finiteCamera(camera.zoom, 1, .45, 3.5), autoRotate: typeof camera.autoRotate === 'boolean' ? camera.autoRotate : true, query: '', folder: '',
   theme: ['fusion','jarvis','muthur'].includes(savedWorkspace.theme) ? savedWorkspace.theme : 'fusion',
   layoutMode: ['orbital','helix','hive'].includes(savedWorkspace.layoutMode) ? savedWorkspace.layoutMode : 'orbital', previewPath: null, previewTarget: null,
   hovered: null, playing: false, loading: false, version: 0, selection: 0,
@@ -41,6 +44,7 @@ core.src = new URL('../public/assets/arc-xeno-core.jpg', import.meta.url).href;
 let width = 0, height = 0, projections = [], lastFrame = 0, dirty = true;
 let palette = {};
 let playTimer;
+let cameraDirty = false, cameraSaveTimer;
 const filePreview = createFilePreview({
   getContext: () => ({ repo: state.repo, sha: state.commits[state.index]?.sha }),
   onOpen: file => { stopPlayback(); state.previewPath = file.path; hover(null, 0, 0); dirty = true; },
@@ -57,10 +61,28 @@ const explorer = createRepositoryExplorer({
   onLayout: setLayout,
   onExport: exportRepository
 });
+const deckCanvas = $('deck-preview'), deckCtx = deckCanvas.getContext('2d');
+let deckPreviewVisible = false, deckFrame = 0;
+new IntersectionObserver(([entry]) => { deckPreviewVisible = entry.isIntersecting; }).observe(deckCanvas);
+function drawDeckPreview(time) {
+  if (!deckPreviewVisible || time - deckFrame < 90) return;
+  deckFrame = time;
+  const box = deckCanvas.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1,2);
+  if (deckCanvas.width !== Math.round(box.width*dpr) || deckCanvas.height !== Math.round(box.height*dpr)) {
+    deckCanvas.width = Math.round(box.width*dpr);deckCanvas.height = Math.round(box.height*dpr);deckCtx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  drawHologram({ctx:deckCtx,width:box.width,height:box.height,state:{...state,zoom:1,hovered:null,previewPath:null},core,palette,time,motion:!reducedMotion.matches,labels:false});
+}
 function saveWorkspace() {
-  try { localStorage.setItem(WORKSPACE_KEY, JSON.stringify({ version: 1, repo: state.repo, theme: state.theme, layoutMode: state.layoutMode })); }
+  clearTimeout(cameraSaveTimer);cameraDirty = false;
+  const camera = { yaw: state.yaw % (Math.PI * 2), pitch: state.pitch, zoom: state.zoom, autoRotate: state.autoRotate };
+  try { localStorage.setItem(WORKSPACE_KEY, JSON.stringify({ version: 1, repo: state.repo, theme: state.theme, layoutMode: state.layoutMode, camera })); }
   catch { /* Restricted or full storage must not interrupt the workspace. */ }
 }
+function saveCameraSoon() { cameraDirty = true;clearTimeout(cameraSaveTimer);cameraSaveTimer = setTimeout(saveWorkspace, 180); }
+window.addEventListener('pagehide', saveWorkspace);
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveWorkspace(); });
+setInterval(() => { if (cameraDirty) saveWorkspace(); }, 1500);
 function setTheme(theme) { state.theme = theme;document.body.dataset.theme = theme;$('theme').value = theme;readPalette();explorer.update();saveWorkspace(); }
 function setLayout(layout) { state.layoutMode = layout;$('layout').value = layout;layoutHologramNodes(state.nodes,layout);dirty = true;explorer.update();saveWorkspace(); }
 function exportRepository(kind) {
@@ -137,7 +159,7 @@ function updateHistory() {
   $('commit-link').title = c.message;
   $('commit-link').href = `https://github.com/${state.repo}/commit/${c.sha}`;
   const date = new Date(c.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  $('commit-meta').textContent = `${c.sha.slice(0, 7)} · ${c.author} · ${date}${state.index === state.commits.length - 1 ? ' · latest' : ''}`;
+  $('commit-meta').textContent = `${c.sha.slice(0, 7)} · by ${c.author} · ${date}${state.index === state.commits.length - 1 ? ' · latest' : ''}`;
   $('data-source').textContent = `${state.source}. Showing up to 40 recent commits.`;
   explorer.update();
 }
@@ -250,7 +272,7 @@ async function loadRepository(repo) {
   $('empty-state').hidden = true;
   $('retry-button').hidden = false;
   notice('');
-  resetCamera();
+  hover(null,0,0);
   repoHeader();
   buildMap();
   $('map-status').textContent = 'Loading repository…';
@@ -392,9 +414,10 @@ function frame(time) {
   const delta = Math.min(40, time - lastFrame);
   lastFrame = time;
   const moving = state.autoRotate && !state.hovered && !state.previewPath && !reducedMotion.matches && !document.hidden;
-  if (moving) { state.yaw += delta * 0.00013; dirty = true; }
+  if (moving) { state.yaw += delta * 0.00013; dirty = true;cameraDirty = true; }
   if (!reducedMotion.matches && !document.hidden) dirty = true;
   if (dirty) { draw(time); dirty = false; }
+  drawDeckPreview(time);
   requestAnimationFrame(frame);
 }
 
@@ -465,8 +488,8 @@ canvas.addEventListener('wheel',event=>{
   if (!event.ctrlKey && !event.metaKey) return;
   event.preventDefault();zoom(Math.exp(-event.deltaY*.001));
 },{passive:false});
-function zoom(factor) {state.zoom=Math.max(.45,Math.min(3.5,state.zoom*factor));dirty=true;}
-function setRotate(value) {state.autoRotate=value;$('rotate-button').setAttribute('aria-pressed',String(value));$('rotate-button').setAttribute('aria-label',`${value?'Stop':'Start'} automatic rotation`);dirty=true;}
+function zoom(factor) {state.zoom=Math.max(.45,Math.min(3.5,state.zoom*factor));dirty=true;saveCameraSoon();}
+function setRotate(value) {state.autoRotate=value;$('rotate-button').setAttribute('aria-pressed',String(value));$('rotate-button').setAttribute('aria-label',`${value?'Stop':'Start'} automatic rotation`);dirty=true;saveCameraSoon();}
 function resetCamera() {state.yaw=.45;state.pitch=.55;state.zoom=1;setRotate(!reducedMotion.matches);dirty=true;}
 
 function panel(name, open, returnFocus = false) {
@@ -531,6 +554,7 @@ core.onload=()=>{dirty=true;};
 document.body.dataset.theme = state.theme;
 $('theme').value = state.theme;
 $('layout').value = state.layoutMode;
+setRotate(state.autoRotate && !reducedMotion.matches);
 readPalette();
 resize();
 requestAnimationFrame(frame);

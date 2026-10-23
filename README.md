@@ -38,3 +38,7 @@ The original analyzer (`scripts/analyze.mjs`) and engine experiments remain avai
 MIT. See [LICENSE](LICENSE) and [DOX-LICENSE.txt](DOX-LICENSE.txt).
 
 The selected repository, visual theme, and graph topology are remembered in this browser. Explicit repository links take priority. Scroll over the graph to reach the command deck below; use Ctrl/Command + scroll or the zoom buttons to zoom. On touch screens, swipe vertically to scroll and horizontally to rotate.
+
+Camera angle, zoom, and orbit state also return on reload. Visual lenses change the instruments, file glyphs, connections, and chamber treatment: ARC-XENO fusion, J.A.R.V.I.S. tactical, and MUTHUR bioscan. Orbital sectors, a double helix, and spherical hive cells each have a distinct structure. A live preview beside the selectors shows the selected combination.
+
+Sector clusters browse folders in place. Browse all files opens a searchable file list without jumping to the graph. Project a file, or use Focus in graph when you want to navigate there. Commit authors and repository information come from the selected GitHub repository, separate from the visualizer's Dead Signal Interactive branding.

@@ -11,6 +11,10 @@
 
 ## Contracts
 
+- `hologram.js` gives lenses distinct rendering: original fusion machinery, blue tactical circuitry, and green organic scanning. Topologies use folder orbital clusters, two intertwined helix strands, and spherical hive cells. Guides are decorative, never invented dependency links.
+- The command deck previews the actual graph beside its selectors. Render that secondary canvas only while visible. Sector clusters browse/search files in place with bounded results and explicit pagination. Only Focus in graph or projecting a file navigates upward.
+- Persist validated camera yaw, pitch, zoom, and orbit state with workspace settings. Debounce manual changes, periodically save orbit progress, and flush on pagehide/hidden. Do not reset the camera during repository loads. Keep reset/zoom/rotate buttons working.
+- Display actual selected-repository commit authors with explicit authorship labels; app branding is separate.
 - Summon the holographic preview from node and Files clicks. Fetch immutable raw content at the selected commit SHA; retain Open on GitHub as a secondary link. Insert source text with DOM text APIs; keep HTML and scripts inert. Bound text/image sizes and cancel stale requests.
 - Preserve the current graph on API failure. Guard async requests so an old repository or timeline selection cannot replace a newer one.
 - A cached pre-preview HTML shell must migrate once to a fresh shell before initializing. Keep the query's repository selection and avoid reload loops.

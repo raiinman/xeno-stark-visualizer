@@ -29,22 +29,26 @@ export function layoutHologramNodes(nodes, mode = 'orbital') {
   });
   if (mode === 'helix') {
     files.forEach((node, i) => {
-      const t = i / Math.max(1, files.length - 1);
-      const angle = t * Math.PI * 5 + (i % 2 ? Math.PI : 0);
-      Object.assign(node, { x: Math.cos(angle) * .64, y: (t - .5) * 1.8, z: Math.sin(angle) * .64 });
+      const t = Math.floor(i / 2) / Math.max(1, Math.ceil(files.length / 2) - 1);
+      const angle = t * TAU * 1.6 + (i % 2 ? Math.PI : 0);
+      Object.assign(node, { x: Math.cos(angle) * .55, y: (t - .5) * 2.25, z: Math.sin(angle) * .55 });
     });
   } else if (mode === 'hive') {
     const goldenRatio = (1 + Math.sqrt(5)) / 2;
-    files.forEach((node, i) => {
-      const phi = Math.acos(1 - 2 * (i + .5) / Math.max(1, files.length));
-      const theta = TAU * (i + .5) / goldenRatio;
-      const radius = .78 + (i % 3) * .10;
-      Object.assign(node, { x: radius * Math.sin(phi) * Math.cos(theta), y: radius * Math.cos(phi), z: radius * Math.sin(phi) * Math.sin(theta) });
+    groups.forEach((group, index) => {
+      const phi = Math.acos(1 - 2 * (index + .5) / groups.length), theta = TAU * (index + .5) / goldenRatio;
+      const hub = {x:.86*Math.sin(phi)*Math.cos(theta),y:.86*Math.cos(phi),z:.86*Math.sin(phi)*Math.sin(theta)};
+      const folder = nodes.find(n => n.folder && n.path === clusters[index]);
+      if (folder && folder !== center) Object.assign(folder,hub);
+      group.forEach((node,i) => {
+        const a = i / group.length * TAU, r = .15 + (i % 3)*.035;
+        Object.assign(node,{x:hub.x+Math.cos(a)*r,y:hub.y+Math.sin(a)*r,z:hub.z+Math.sin(i*2.4)*.12});
+      });
     });
   }
   // Intermediate folders follow their descendants, so every visible connection is real.
   for (const folder of [...nodes].filter(n => n.folder && n.parent).sort((a,b) => b.depth - a.depth)) {
-    if (folder.children.length && (mode !== 'orbital' || !clusters.includes(folder.path))) {
+    if (folder.children.length && (mode === 'helix' || !clusters.includes(folder.path))) {
       const points = folder.children;
       for (const axis of ['x', 'y', 'z']) folder[axis] = points.reduce((sum,n) => sum + n[axis], 0) / points.length * .62;
       folder.cluster = points[0].cluster;
@@ -54,7 +58,7 @@ export function layoutHologramNodes(nodes, mode = 'orbital') {
 
 function colorFor(node, theme) {
   const index = node.cluster || 0;
-  if (theme === 'jarvis') return ['#00e5ff','#ffcc00','#38bdf8','#f59e0b'][index % 4];
+  if (theme === 'jarvis') return ['#00d9ff','#a5efff','#3a8dff','#72caff'][index % 4];
   if (theme === 'muthur') return ['#39ff14','#00ff88','#a3e635','#ff9900'][index % 4];
   return FUSION[index % FUSION.length];
 }
@@ -67,7 +71,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
   const acid = theme === 'jarvis' ? '#ffcc00' : '#39ff14';
   const gold = theme === 'muthur' ? '#a3e635' : '#ffb800';
   const clock = motion ? time : 0;
-  const unit = Math.max(35, Math.min(width * .30, height * .41)) * state.zoom;
+  const unit = Math.max(35, Math.min(width * .30, height * .41)) * state.zoom * (state.layoutMode === 'helix' ? .82 : 1);
   const distance = 3.6;
   const cy = Math.cos(state.yaw), sy = Math.sin(state.yaw);
   const cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
@@ -116,17 +120,38 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
   const beam=ctx.createLinearGradient(0,center.y-unit*.8,0,bottom.y+unit*.45);
   beam.addColorStop(0,cyan+'00');beam.addColorStop(.7,cyan+'08');beam.addColorStop(1,cyan+'00');
   ctx.fillStyle=beam;ctx.beginPath();ctx.moveTo(center.x-unit*.50,center.y-unit*.85);ctx.lineTo(center.x+unit*.50,center.y-unit*.85);ctx.lineTo(bottom.x+unit*.12,bottom.y+unit*.35);ctx.lineTo(bottom.x-unit*.12,bottom.y+unit*.35);ctx.closePath();ctx.fill();
-  // Original three gimbal radii, now with distinct crossing planes for visible 3D depth.
-  gimbal(.36, .18, 'x', 0, gold, 0);
-  gimbal(.72, -.25, 'x', .35, acid, 1);
-  gimbal(1.04, .12, 'x', .8, cyan, 2);
-  gimbal(.93, 1.12, 'z', .2, cyan, 3);
+  // Lens instruments and topology guides are decorative, never dependency edges.
+  if (theme === 'jarvis') {
+    for (let i=-5;i<=5;i++) {
+      path3D([{x:i*.22,y:-.9,z:-1.1},{x:i*.22,y:-.9,z:1.1}],cyan,.13);
+      path3D([{x:-1.1,y:-.9,z:i*.22},{x:1.1,y:-.9,z:i*.22}],cyan,.13);
+    }
+    gimbal(.3,Math.PI/2,'x',0,cyan,0);gimbal(1.12,0,'x',0,cyan,1);
+  } else if (theme === 'muthur') {
+    for (let i=0;i<height;i+=5) { ctx.fillStyle='#39ff1405';ctx.fillRect(0,i,width,1); }
+    gimbal(1.12,Math.PI/2,'x',0,acid,0);
+    const sweep=clock*.0003;
+    path3D([{x:0,y:0,z:0},{x:Math.cos(sweep)*1.12,y:Math.sin(sweep)*1.12,z:0}],acid,.48,2,true);
+  } else {
+    gimbal(.36, .18, 'x', 0, gold, 0);gimbal(.72, -.25, 'x', .35, acid, 1);
+    gimbal(1.04, .12, 'x', .8, cyan, 2);gimbal(.93, 1.12, 'z', .2, cyan, 3);
+  }
+  if (state.layoutMode === 'helix') {
+    const strand = (t,side) => ({x:Math.cos(t*TAU*1.6+side*Math.PI)*.55,y:(t-.5)*2.25,z:Math.sin(t*TAU*1.6+side*Math.PI)*.55});
+    for (let side=0;side<2;side++) path3D(Array.from({length:97},(_,i)=>strand(i/96,side)),side?gold:cyan,.5,1.5,true);
+    for(let i=0;i<=14;i++)path3D([strand(i/14,0),strand(i/14,1)],cyan,.12);
+  } else if (state.layoutMode === 'hive') {
+    for (const folder of state.nodes.filter(n=>n.folder&&n.parent)) {
+      path3D(Array.from({length:7},(_,i)=>({x:folder.x+Math.cos(i/6*TAU)*.27,y:folder.y+Math.sin(i/6*TAU)*.27,z:folder.z})),colorFor(folder,theme),.32,1.2,true);
+    }
+  }
 
   const projections = state.nodes.map(node => ({...project(node), node, color:colorFor(node,theme)}));
   const byNode = new Map(projections.map(p=>[p.node,p]));
   const active = new Set();
   for(let node=state.hovered;node;node=node.parent)active.add(node);
   function curve(a,b,index) {
+    if (theme === 'jarvis') return t => ({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t});
     const mid={x:(a.x+b.x)*.5+(b.z-a.z)*.16,y:(a.y+b.y)*.5+.10+Math.sin(index*1.7)*.07,z:(a.z+b.z)*.5-(b.x-a.x)*.16};
     return t=>{
       const s=1-t;
@@ -175,9 +200,11 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
       glow.addColorStop(0,color+'bb');glow.addColorStop(.45,color+'44');glow.addColorStop(1,color+'00');
       ctx.fillStyle=glow;ctx.beginPath();ctx.arc(p.x,p.y,r*2.5,0,TAU);ctx.fill();
       ctx.beginPath();
-      for(let side=0;side<=6;side++){
-        const angle=side/6*TAU+clock*.00012;
-        const x=p.x+Math.cos(angle)*r,y=p.y+Math.sin(angle)*r;
+      const sides=theme==='jarvis'?4:theme==='muthur'?18:6;
+      for(let side=0;side<=sides;side++){
+        const angle=side/sides*TAU+(theme==='jarvis'?Math.PI/4:clock*.00012);
+        const pulse=theme==='muthur'?1+Math.sin(angle*3+clock*.0015+n.cluster)*.16:1;
+        const x=p.x+Math.cos(angle)*r*pulse,y=p.y+Math.sin(angle)*r*pulse;
         if(side)ctx.lineTo(x,y);else ctx.moveTo(x,y);
       }
       ctx.fillStyle='#041018';ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=hovered?2:1.3;ctx.stroke();
