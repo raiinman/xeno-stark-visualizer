@@ -72,6 +72,18 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
   const acid = theme === 'jarvis' ? '#ffcc00' : '#39ff14';
   const gold = theme === 'muthur' ? '#a3e635' : '#ffb800';
   const clock = motion ? time : 0;
+  const age=motion && Number.isFinite(state.entranceAt)?Math.max(0,time-state.entranceAt):10000;
+  const ignition=Math.min(1,age/1100);
+  const arrival=new Map(state.nodes.map((node,index)=>{
+    const delay=node.parent?650+(index-1)/Math.max(1,state.nodes.length-2)*3200:0;
+    const t=Math.max(0,Math.min(1,(age-delay)/1200));
+    const ease=1-Math.pow(1-t,4), twist=(1-ease)*1.2;
+    const radius=.15+.85*ease;
+    return [node,{t,pop:t===1?1:1+2.2*Math.pow(t-1,3)+1.2*Math.pow(t-1,2),
+      x:(node.x*Math.cos(twist)-node.z*Math.sin(twist))*radius,
+      y:node.y*radius-(1-ease)*.25,
+      z:(node.x*Math.sin(twist)+node.z*Math.cos(twist))*radius}];
+  }));
   const plotTop = labels ? (width<600?165:145) : 24, plotHeight = Math.max(100,height-plotTop-(labels?65:24));
   const unit = Math.max(35, Math.min(width * .30, plotHeight * .43)) * state.zoom * (state.layoutMode === 'helix' ? .82 : 1);
   const distance = 3.6;
@@ -91,7 +103,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
     ctx.beginPath();
     points.forEach((point,i) => { const p = project(point); if(i)ctx.lineTo(p.x,p.y);else ctx.moveTo(p.x,p.y); });
     ctx.strokeStyle = color;
-    ctx.globalAlpha = alpha;
+    ctx.globalAlpha = alpha * ignition;
     ctx.lineWidth = lineWidth;
     if(glow){ctx.shadowColor=color;ctx.shadowBlur=7;}
     ctx.stroke();ctx.restore();
@@ -159,7 +171,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
     }
   }
 
-  const projections = state.nodes.map(node => ({...project(node), node, color:colorFor(node,theme)}));
+  const projections = state.nodes.filter(node=>arrival.get(node).t>0).map(node => ({...project(arrival.get(node)), node, color:colorFor(node,theme)}));
   const byNode = new Map(projections.map(p=>[p.node,p]));
   const active = new Set();
   for(let node=state.hovered;node;node=node.parent)active.add(node);
@@ -173,14 +185,14 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
   }
   // Biomechanical tendrils and plasma spores follow actual folder/file connections.
   state.nodes.forEach((node,index)=>{
-    if(!node.parent)return;
+    if(!node.parent || arrival.get(node).t<=0)return;
     const lit=active.has(node)||(state.hovered?.folder && node.path.startsWith(state.hovered.path+'/'));
-    const point=curve(node.parent,node,index);
-    const points=Array.from({length:22},(_,i)=>point(i/21));
+    const point=curve(arrival.get(node.parent),arrival.get(node),index);
+    const points=Array.from({length:22},(_,i)=>point(i/21*Math.min(1,arrival.get(node).t*2)));
     const color=lit?gold:colorFor(node,theme);
     path3D(points,color,lit?.18:.02,lit?5:2);
     path3D(points,color,lit?.85:.30,lit?1.8:.9,lit);
-    if(motion && (index%2===0||lit)) {
+    if(motion && arrival.get(node).t===1 && (index%2===0||lit)) {
       const t=(clock*.00022+index*.137)%1;
       const p=project(point(t));
       ctx.save();ctx.fillStyle=lit?gold:acid;ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=8;ctx.globalAlpha=lit?.95:.68;
@@ -198,6 +210,12 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
     const r=Math.max(4,size*p.scale)*(width<600?.82:1);
     p.r=r;
     ctx.save();
+    const birth=arrival.get(n), pop=Math.max(.001,birth.pop);
+    ctx.translate(p.x,p.y);ctx.scale(pop,pop);ctx.translate(-p.x,-p.y);
+    if(birth.t<1){
+      ctx.strokeStyle=color;ctx.globalAlpha=(1-birth.t)*.7;ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(p.x,p.y,r+birth.t*26,0,TAU);ctx.stroke();ctx.globalAlpha=1;
+    }
     if(!n.parent) {
       const glow=ctx.createRadialGradient(p.x,p.y,3,p.x,p.y,42);
       glow.addColorStop(0,cyan+'66');glow.addColorStop(1,cyan+'00');
@@ -238,7 +256,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
       }
     }
     ctx.restore();
-    if(n.parent&&labels)labelCandidates.push({...p,r,hovered});
+    if(n.parent&&labels&&arrival.get(n).t>.7)labelCandidates.push({...p,r,hovered});
   }
   // Keep names legible over the effects; hidden collisions remain accessible in Files.
   const occupied=[];

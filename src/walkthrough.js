@@ -8,9 +8,12 @@ export function createWalkthrough() {
     {title:'Travel through history',copy:'A commit is a saved version of the project. The slider under the graph chooses that version. Move left for older commits, or choose Latest to return to the newest available version.',tip:'The graph and file previews follow the selected commit. Each repository remembers where you left its history.',targets:['.timeline']},
     {title:'Search and keep exploring',copy:'Find a file filters the current folder. Page arrows reveal more items in large folders. Scroll below the graph, or use Explore, for repository choices, themes, and the full folder browser.',tip:'Your files, folder, page, view, and selected commit are remembered separately for each repository. You can replay this guide any time.',targets:['.search','.explore-button']}
   ];
+  const storageKey='xeno-stark:walkthrough:v1';
   let index=0;
+  function remember(){try{localStorage.setItem(storageKey,'done');}catch{}}
+  function open(){index=0;panel.hidden=false;trigger.setAttribute('aria-expanded','true');render();}
   function clearTargets(){document.querySelectorAll('.walkthrough-target').forEach(el=>el.classList.remove('walkthrough-target'));}
-  function close(){panel.hidden=true;trigger.setAttribute('aria-expanded','false');clearTargets();trigger.focus({preventScroll:true});}
+  function close(){remember();panel.hidden=true;trigger.setAttribute('aria-expanded','false');clearTargets();trigger.focus({preventScroll:true});}
   function render(){
     const step=steps[index];clearTargets();
     panel.dataset.step=String(index+1);
@@ -20,7 +23,7 @@ export function createWalkthrough() {
     for(const selector of step.targets)document.querySelector(selector)?.classList.add('walkthrough-target');
     $('walkthrough-title').focus({preventScroll:true});
   }
-  trigger.onclick=()=>{if(!panel.hidden){close();return;}index=0;panel.hidden=false;trigger.setAttribute('aria-expanded','true');render();};
+  trigger.onclick=()=>{if(!panel.hidden){close();return;}open();};
   $('walkthrough-close').onclick=close;
   $('walkthrough-back').onclick=()=>{if(index>0){index--;render();}};
   $('walkthrough-next').onclick=()=>{if(index===steps.length-1)close();else{index++;render();}};
@@ -32,4 +35,7 @@ export function createWalkthrough() {
       (event.key==='ArrowLeft'?$('walkthrough-back'):$('walkthrough-next')).click();
     }
   },true);
+  let seen=false;
+  try{seen=localStorage.getItem(storageKey)==='done';}catch{}
+  if(!seen)open();
 }

@@ -378,6 +378,10 @@ function buildMap() {
   state.graphView = buildGraphView(files,{folder:state.folder,name:state.repo.split('/')[1],page:state.graphPage,expanded:state.expanded});
   if (!state.restoringNavigation) state.graphPage = state.graphView.page;
   state.nodes = state.graphView.nodes;
+  // Start once per loaded repository, not again when a background refresh arrives.
+  if(state.files.length && state.entranceRepo!==state.repo){
+    state.entranceRepo=state.repo;state.entranceAt=performance.now();
+  }
   canvas.dataset.nodeCount = state.nodes.length;canvas.dataset.nodeLimit = GRAPH_NODE_LIMIT;
   layoutHologramNodes(state.nodes, state.layoutMode);
   updateMapStatus();
