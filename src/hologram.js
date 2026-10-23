@@ -57,9 +57,11 @@ export function layoutHologramNodes(nodes, mode = 'orbital') {
 }
 
 function colorFor(node, theme) {
-  // Color explains kind consistently; the lens supplies the material and instruments.
-  if (node.folder) return theme === 'muthur' ? '#ffb547' : '#ffcc66';
-  return theme === 'muthur' ? '#39ff14' : theme === 'jarvis' ? '#8ceaff' : '#00f0ff';
+  // Restore the original lens palettes. Shapes, rather than color, identify folders.
+  const index = node.cluster || 0;
+  if (theme === 'jarvis') return ['#00e5ff','#ffcc00','#38bdf8','#f59e0b'][index % 4];
+  if (theme === 'muthur') return ['#39ff14','#00ff88','#a3e635','#ff9900'][index % 4];
+  return ['#ffb800','#00f0ff','#39ff14','#38bdf8','#b481ff','#ff637c'][index % 6];
 }
 
 export function drawHologram({ctx, width, height, state, core, palette, time, motion, labels}) {
@@ -102,11 +104,11 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
       return {x,y:z*Math.sin(tilt),z:z*Math.cos(tilt)};
     };
     const ring = Array.from({length:145},(_,i)=>point(i/144*TAU));
-    path3D(ring,color,.09,1);
+    path3D(ring,color,.16,1);
     // Short illuminated bands and machined azimuth ticks define each gimbal plane.
     for(let band=0;band<3;band++) {
       const start=band/3*TAU+.2;
-      path3D(Array.from({length:28},(_,i)=>point(start+i/27*.48)),color,.28,1.3,true);
+      path3D(Array.from({length:28},(_,i)=>point(start+i/27*.48)),color,.48,1.6,true);
     }
     for(let i=0;i<64;i++) {
       const a=i/64*TAU;
@@ -177,7 +179,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
     const points=Array.from({length:22},(_,i)=>point(i/21));
     const color=lit?gold:colorFor(node,theme);
     path3D(points,color,lit?.18:.02,lit?5:2);
-    path3D(points,color,lit?.85:.18,lit?1.8:.8,lit);
+    path3D(points,color,lit?.85:.30,lit?1.8:.9,lit);
     if(motion && (index%2===0||lit)) {
       const t=(clock*.00022+index*.137)%1;
       const p=project(point(t));

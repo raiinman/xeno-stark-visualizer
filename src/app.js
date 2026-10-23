@@ -3,9 +3,10 @@ import { createFilePreview } from './filePreview.js';
 import { createRepositoryExplorer } from './repositoryExplorer.js';
 import { buildGraphView, GRAPH_NODE_LIMIT, sanitizeNavigation, reconcileNavigation } from './graphView.js';
 import { readCachedView, cacheSelectedView } from './viewCache.js';
+import { createWalkthrough } from './walkthrough.js';
 // A cached pre-preview shell can meet newer scripts during a Pages rollout.
 // Migrate it once to a fresh shell, preserving the chosen repository query.
-if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('file-dock') || !document.getElementById('graph-title') || !document.getElementById('graph-detail') || !document.getElementById('graph-navigation') || !document.getElementById('repository-explorer') || !document.getElementById('layout') || !document.querySelector('#theme option[value="fusion"]') || document.querySelector('#theme option[value="classic"]')) {
+if (document.getElementById('file-preview')?.tagName !== 'TEMPLATE' || !document.getElementById('file-dock') || !document.getElementById('help-button') || !document.getElementById('walkthrough') || !document.getElementById('graph-title') || !document.getElementById('graph-detail') || !document.getElementById('graph-navigation') || !document.getElementById('repository-explorer') || !document.getElementById('layout') || !document.querySelector('#theme option[value="fusion"]') || document.querySelector('#theme option[value="classic"]')) {
   const fresh = new URL(location.href);
   const version = new URL(import.meta.url).searchParams.get('v') || 'command-deck-3';
   if (fresh.searchParams.get('_ui') !== version) {
@@ -627,6 +628,7 @@ setRotate(state.autoRotate && !reducedMotion.matches);
 readPalette();
 resize();
 requestAnimationFrame(frame);
+createWalkthrough();
 loadRepository(state.repo);
 
 }

@@ -43,7 +43,9 @@ Camera angle, zoom, and orbit state also return on reload. Visual lenses change 
 
 ARC-XENO fusion is the default, with the distinct J.A.R.V.I.S. tactical and MUTHUR bioscan lenses restored. Every repository remembers its own lens, topology, zoom, camera angle, rotation state, graph folder, page, and search, independently of other projects and alongside its saved file panes. Refresh or switch projects to resume the same graph view. Removed folders fall back to the closest surviving ancestor, and pages clamp to the available range.
 
-The default graph explores one folder at a time, with up to 24 immediate items around its core. Gold folder icons open folders; theme-colored files open previews. Labels and the guide explain where you are and what belongs there. New workspaces start with rotation paused. Include nested files in View options to see more levels, within the absolute 80-node cap. Paging and search retain access to all tracked files.
+The default graph explores one folder at a time, with up to 24 immediate items around its core. Tabbed folder icons open folders; other glowing shapes open file previews. The original multicolor lens palettes are restored, with folder/file kind identified by shape. Labels and the guide explain where you are and what belongs there. New workspaces start with rotation paused. Include nested files in View options to see more levels, within the absolute 80-node cap. Paging and search retain access to all tracked files.
+
+Click **How to use this** beside the graph heading for a four-step walkthrough of folders, file windows and the dock, the commit timeline, and search/repository controls. Use Back/Next, arrow keys, or Escape. It can be replayed without changing your workspace.
 
 The selected commit is remembered by SHA for each repository, even after newer commits arrive or the selected commit moves outside the recent history window. Choose Latest to move forward explicitly. A bounded browser cache keeps the last selected file tree available during GitHub outages when storage permits; it stores file metadata and history, not file contents.
 
