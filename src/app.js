@@ -66,6 +66,7 @@ core.src = new URL('../public/assets/arc-xeno-core.jpg', import.meta.url).href;
 let width = 0, height = 0, projections = [], lastFrame = 0, dirty = true;
 let palette = {};
 let playTimer, playbackRun=0, playbackStep=null, playbackPending=false;
+let tourPreviewWanted=false,tourPreviewActive=false,tourPreviewRun=0,tourPreviewTimer;
 let cameraDirty = false, cameraSaveTimer;
 const filePreview = createFilePreview({
   getContext: () => ({ repo: state.repo, sha: state.commits[state.index]?.sha }),
@@ -381,7 +382,7 @@ async function loadRepository(repo) {
   }
   if (version === state.version) {
     await refresh({ first: true });
-    if (version === state.version) {filePreview.restore();if(!filePreview.isOpen && !reducedMotion.matches && !document.hidden && !document.body.classList.contains('first-visit-open'))startPlayback(true);}
+    if (version === state.version) {filePreview.restore();if(tourPreviewWanted)runTourPreview();else if(!filePreview.isOpen && !reducedMotion.matches && !document.hidden && !document.body.classList.contains('first-visit-open'))startPlayback(true);}
   }
 }
 
@@ -644,7 +645,33 @@ $('changes-button').onclick=()=>{if(!$('changes-panel').hidden){closeChanges();r
 $('close-changes').onclick=()=>{closeChanges();$('changes-button').focus({preventScroll:true});};
 window.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('changes-panel').hidden){event.preventDefault();event.stopImmediatePropagation();closeChanges();$('changes-button').focus({preventScroll:true});}},true);
 function openFile(file){stopPlayback();filePreview.open(file,{beforeSha:state.changeMarkers.get(file.path)==='~ Changed'?state.comparisonSha:null});}
-function stopPlayback(){state.selection++;playbackRun++;clearTimeout(playTimer);playbackStep=null;state.playing=false;$('play-button').setAttribute('aria-label','Play recent commit history');$('play-button').innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg>';}
+function stopPlayback(){if(tourPreviewActive){tourPreviewActive=false;tourPreviewRun++;clearTimeout(tourPreviewTimer);previewStatus('Preview paused. Choose Next to learn the controls, or use Play after the guide.');}state.selection++;playbackRun++;clearTimeout(playTimer);playbackStep=null;state.playing=false;$('play-button').setAttribute('aria-label','Play recent commit history');$('play-button').innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg>';}
+function previewStatus(text){window.dispatchEvent(new CustomEvent('walkthrough-preview-status',{detail:text}));}
+async function runTourPreview(){
+  if(!tourPreviewWanted || tourPreviewActive || state.loading || !state.commits.length)return;
+  if(filePreview.isOpen || state.commits.length<2 || reducedMotion.matches){
+    previewStatus(reducedMotion.matches?'Reduced motion is enabled. Use Play after the guide to explore history at your own pace.':filePreview.isOpen?'Your file windows are restored. Use Play after closing them to watch history.':'This repository has one available version. Use the timeline when more commits are available.');return;
+  }
+  stopPlayback();tourPreviewActive=true;const run=++tourPreviewRun,version=state.version;
+  state.playing=true;$('play-button').setAttribute('aria-label','Pause history');
+  $('play-button').innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>';
+  const count=Math.min(4,state.commits.length);let index=0;
+  const valid=()=>tourPreviewActive&&tourPreviewWanted&&run===tourPreviewRun&&version===state.version&&!document.hidden;
+  async function tick(){
+    if(!valid())return;
+    previewStatus(`Live preview · version ${index+1} of ${count}. Watch the orbs and the file-change counts below. Next pauses the preview.`);
+    await showCommit(index,{animate:index>0});
+    if(!valid()||!state.playing)return;
+    if(index===count-1){tourPreviewTimer=setTimeout(()=>{if(!valid())return;stopPlayback();previewStatus('Preview paused. Play/Pause runs history; the slider chooses a version. Choose Next to see those controls.');},3000);}
+    else{index++;tourPreviewTimer=setTimeout(tick,3000);}
+  }
+  await tick();
+}
+window.addEventListener('walkthrough-step',event=>{
+  tourPreviewWanted=event.detail.preview===true;
+  if(!tourPreviewWanted){if(tourPreviewActive)stopPlayback();return;}
+  runTourPreview();
+});
 async function startPlayback(fromStart=false){
   if(state.playing || state.commits.length<2)return;
   const run=++playbackRun;

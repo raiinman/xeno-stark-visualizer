@@ -69,3 +69,6 @@ Run `node --check src/app.js` and `node --test src/graphView.test.js src/viewCac
 
 - First-run help remains modal, but moves beside its current feature. A top-layer SVG mask leaves clear spotlight holes over actual graph/header/timeline controls and draws an arrow from the guide. Reposition on resize/scroll with viewport clamping and minimum overlap. Manual replay also follows its targets. Clean up positioning/highlights on dismissal.
 - The first two guide steps must cover history immediately, before folders/files: Play/Pause rebuilds the entire graph through saved versions, then slider/speed/change counts explain choosing a version, pacing and inspecting edits. Explain additions, changes, removals, folder rearrangement, looping and file contents at the selected version.
+
+- JARVIS optical file nodes retain concentric lenses, ticks and scanning arcs, with the square corner brackets removed.
+- The first-run timeline step automatically previews up to four real commits, starting at the oldest available, with three-second holds. Spotlight both the bar and graph. Stop at the last preview version, before advancing steps, on dismissal, repository change, tab hiding or failures; invalidate in-flight results and timers. Reduced motion and restored panes skip automatic preview with an explanation. Manual guide replay remains paused.

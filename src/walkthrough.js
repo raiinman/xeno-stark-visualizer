@@ -3,7 +3,7 @@ export function createWalkthrough() {
   const $ = id => document.getElementById(id);
   const panel=$('walkthrough'), trigger=$('help-button');
   const steps=[
-    {title:'This bottom bar rebuilds Xeno Space',copy:'This is the repository timeline. Play advances through saved versions of the project, from oldest to newest, then loops. With each step, Xeno Space becomes that version: new file orbs appear, changed files are marked, removed ones fade, and folders rearrange.',tip:'The guide has paused playback. After closing it, use Play/Pause here whenever you want to watch the repository grow or stop to explore.',targets:['.timeline']},
+    {title:'Watch this bar rebuild Xeno Space',copy:'Watch this short preview. Each tick of the bottom timeline loads a saved version of the repo into Xeno Space. New file orbs appear, edits are marked, removed files fade, and folders move.',tip:'Preparing a few real commits… The preview pauses automatically, or immediately when you choose Next.',targets:['.timeline','#graph']},
     {title:'Choose a version and watch its changes',copy:'Drag the highlighted slider to travel to a specific saved version. The graph and any files you open show that version. Speed controls how fast history plays; Latest jumps to the newest available version.',tip:'The counts below the slider show added, changed, and removed files. Click them to pause and see exactly which files changed. This bar changes the whole Xeno Space, not just the text below it.',targets:['#history','#playback-speed','#changes-button']},
     {title:'This is your repository in Xeno Space',copy:'The center is your current folder. Tabbed folder icons open folders; the other glowing nodes open files. Lines show which folder each item belongs to. Your location is named above the graph.',tip:'Colors belong to the visual theme. Folder shapes and file names tell you what to open.',targets:['#graph','.graph-guide']},
     {title:'Open and compare files',copy:'Click a file node to read it in a holographic window. The Files button highlighted here gives you a list too. A Changed file opens old and new code side by side.',tip:'Move, resize, or minimize file windows. Next change jumps to edits; Show only changes hides unchanged code. Opening a file pauses history.',targets:['#files-button']},
@@ -28,10 +28,10 @@ export function createWalkthrough() {
     const w=innerWidth,h=innerHeight,margin=16,rects=targetRects();
     const width=panel.getBoundingClientRect().width,height=panel.getBoundingClientRect().height;
     const target=rects[0]||{left:w/2,right:w/2,top:h/2,bottom:h/2};
-    const candidates=[{left:target.right+20,top:(target.top+target.bottom-height)/2},{left:target.left-width-20,top:(target.top+target.bottom-height)/2},{left:(w-width)/2,top:target.top-height-20},{left:(w-width)/2,top:target.bottom+20}];
+    const candidates=[{left:margin,top:margin},{left:w-width-margin,top:margin},{left:(w-width)/2,top:margin},{left:target.right+20,top:(target.top+target.bottom-height)/2},{left:target.left-width-20,top:(target.top+target.bottom-height)/2},{left:(w-width)/2,top:target.top-height-20},{left:(w-width)/2,top:target.bottom+20}];
     const clamp=(v,min,max)=>Math.max(min,Math.min(Math.max(min,max),v));
     const options=candidates.map(c=>({left:clamp(c.left,margin,w-width-margin),top:clamp(c.top,margin,h-height-margin)}));
-    const overlap=c=>rects.reduce((sum,r)=>sum+Math.max(0,Math.min(c.left+width,r.right)-Math.max(c.left,r.left))*Math.max(0,Math.min(c.top+height,r.bottom)-Math.max(c.top,r.top)),0);
+    const overlap=c=>rects.reduce((sum,r,i)=>sum+(i===0?12:1)*Math.max(0,Math.min(c.left+width,r.right)-Math.max(c.left,r.left))*Math.max(0,Math.min(c.top+height,r.bottom)-Math.max(c.top,r.top)),0);
     options.sort((a,b)=>overlap(a)-overlap(b));const best=options[0];
     panel.style.left=`${best.left}px`;panel.style.top=`${best.top}px`;
     if(!firstVisit)return;
@@ -52,17 +52,19 @@ export function createWalkthrough() {
   function remember(){try{localStorage.setItem(storageKey,'done');}catch{}}
   function open(blocking=false){window.dispatchEvent(new Event('walkthrough-opened'));index=0;panel.classList.add('is-guided');firstVisit=blocking;panel.hidden=false;trigger.setAttribute('aria-expanded','true');if(blocking){dialog.append(panel);document.body.classList.add('first-visit-open');dialog.showModal();}render();}
   function clearTargets(){document.querySelectorAll('.walkthrough-target').forEach(el=>el.classList.remove('walkthrough-target'));}
-  function close(){remember();panel.hidden=true;trigger.setAttribute('aria-expanded','false');clearTargets();panel.classList.remove('is-guided');panel.style.removeProperty('left');panel.style.removeProperty('top');if(firstVisit){firstVisit=false;dialog.close();home.after(panel);document.body.classList.remove('first-visit-open');window.dispatchEvent(new Event('walkthrough-dismissed'));}trigger.focus({preventScroll:true});}
+  function close(){window.dispatchEvent(new CustomEvent('walkthrough-step',{detail:{preview:false}}));remember();panel.hidden=true;trigger.setAttribute('aria-expanded','false');clearTargets();panel.classList.remove('is-guided');panel.style.removeProperty('left');panel.style.removeProperty('top');if(firstVisit){firstVisit=false;dialog.close();home.after(panel);document.body.classList.remove('first-visit-open');window.dispatchEvent(new Event('walkthrough-dismissed'));}trigger.focus({preventScroll:true});}
   function render(){
     const step=steps[index];clearTargets();
     panel.dataset.step=String(index+1);
     $('walkthrough-progress').textContent=`Step ${index+1} of ${steps.length}`;
-    $('walkthrough-title').textContent=step.title;$('walkthrough-copy').textContent=step.copy;$('walkthrough-tip').textContent=step.tip;
+    $('walkthrough-title').textContent=step.title;$('walkthrough-copy').textContent=step.copy;$('walkthrough-tip').textContent=index===0&&!firstVisit?'Playback is paused for this guide. After closing it, use Play/Pause on the highlighted bar to watch Xeno Space rebuild.':step.tip;
     $('walkthrough-back').disabled=index===0;$('walkthrough-next').textContent=index===steps.length-1?'Done':'Next';
     for(const selector of step.targets)document.querySelector(selector)?.classList.add('walkthrough-target');
     $('walkthrough-title').focus({preventScroll:true});
     position();
+    window.dispatchEvent(new CustomEvent('walkthrough-step',{detail:{preview:firstVisit&&index===0}}));
   }
+  window.addEventListener('walkthrough-preview-status',event=>{if(!panel.hidden&&index===0){$('walkthrough-tip').textContent=event.detail;position();}});
   trigger.onclick=()=>{if(!panel.hidden){close();return;}open();};
   $('walkthrough-close').onclick=close;
   $('walkthrough-back').onclick=()=>{if(index>0){index--;render();}};

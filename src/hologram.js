@@ -268,7 +268,6 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
         const a=tick/12*TAU;ctx.beginPath();ctx.moveTo(p.x+Math.cos(a)*r*1.5,p.y+Math.sin(a)*r*1.5);ctx.lineTo(p.x+Math.cos(a)*r*1.75,p.y+Math.sin(a)*r*1.75);ctx.stroke();
       }
       ctx.strokeStyle=gold;ctx.lineWidth=1.3;
-      for(const [sx,sy] of [[-1,-1],[1,-1],[-1,1],[1,1]]){ctx.beginPath();ctx.moveTo(p.x+sx*r*1.9,p.y+sy*r*1.2);ctx.lineTo(p.x+sx*r*1.9,p.y+sy*r*1.9);ctx.lineTo(p.x+sx*r*1.2,p.y+sy*r*1.9);ctx.stroke();}
       const sweep=clock*.001+(n.cluster||0);
       ctx.strokeStyle=hovered?'#ffffff':color;ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,r*1.3,sweep,sweep+.65);ctx.stroke();
       if(changed){ctx.strokeStyle=gold;ctx.beginPath();ctx.arc(p.x,p.y,r*2.1,0,TAU);ctx.stroke();}
