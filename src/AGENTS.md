@@ -63,3 +63,6 @@ Run `node --check src/app.js` and `node --test src/graphView.test.js src/viewCac
 - Hidden unchanged-line separators are keyboard-operable buttons that independently expand/collapse their own context while Show only changes stays enabled. Keep expanded context scoped to the loaded comparison and preserve edit navigation.
 - Start/reset at zoom 1.2. Migrate the former untouched zoom 1 once, marked with cameraFramingVersion; preserve all other saved zoom choices. Camera readouts use plain Turn and Tilt labels.
 - JARVIS file nodes are distinct circular optical modules with calibrated ticks, fixed gold corner brackets and a rotating scan arc. Preserve ARC-XENO and MUTHUR designs.
+
+- First-time walkthrough is a centered native modal dialog with a dimmed backdrop, inert workspace, native focus containment and page scroll lock. Finish, Close or Escape remembers dismissal and releases the workspace. Defer automatic history playback until dismissal; returning visitors skip it, and manual replay remains nonmodal.
+- Starting/reset zoom is 1.32 (another 10% closer than 1.2). cameraFramingVersion 2 migrates previous default zoom 1 or 1.2 once, preserving other customized zoom values.

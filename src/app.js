@@ -47,7 +47,7 @@ const state = {
   branch: 'main', commits: [], index: -1, files: [], nodes: [], trees: new Map(),
   selectedCommitSha: validCommitSha(initialWorkspace.selectedCommitSha) ? initialWorkspace.selectedCommitSha : null,
   yaw: finiteCamera(camera.yaw, .45, -Math.PI * 2, Math.PI * 2), pitch: finiteCamera(camera.pitch, .55, -.9, .9),
-  zoom: finiteCamera(!initialWorkspace.cameraFramingVersion && camera.zoom===1?1.2:camera.zoom, 1.2, .45, 3.5), autoRotate: typeof camera.autoRotate === 'boolean' ? camera.autoRotate : false, query: initialNavigation.query, folder: initialNavigation.folder,
+  zoom: finiteCamera((initialWorkspace.cameraFramingVersion||0)<2 && [1,1.2].includes(camera.zoom)?1.32:camera.zoom, 1.32, .45, 3.5), autoRotate: typeof camera.autoRotate === 'boolean' ? camera.autoRotate : false, query: initialNavigation.query, folder: initialNavigation.folder,
   expanded: initialNavigation.expanded,
   theme: ['fusion','jarvis','muthur'].includes(initialWorkspace.theme) ? initialWorkspace.theme : 'fusion',
   layoutMode: ['orbital','helix','hive'].includes(initialWorkspace.layoutMode) ? initialWorkspace.layoutMode : 'orbital', previewPath: null, previewTarget: null,
@@ -99,7 +99,7 @@ function saveWorkspace() {
   clearTimeout(cameraSaveTimer);cameraDirty = false;
   const camera = { yaw: state.yaw % (Math.PI * 2), pitch: state.pitch, zoom: state.zoom, autoRotate: state.autoRotate };
   const navigation = sanitizeNavigation({folder:state.folder,page:state.graphPage,query:state.query,expanded:state.expanded});
-  const saved = {version:2,cameraFramingVersion:1,labelBackgrounds:state.labelBackgrounds,playbackSpeed:state.playbackSpeed,theme:state.theme,layoutMode:state.layoutMode,camera,navigation,selectedCommitSha:state.selectedCommitSha};
+  const saved = {version:2,cameraFramingVersion:2,labelBackgrounds:state.labelBackgrounds,playbackSpeed:state.playbackSpeed,theme:state.theme,layoutMode:state.layoutMode,camera,navigation,selectedCommitSha:state.selectedCommitSha};
   repoWorkspaces.set(state.repo.toLowerCase(),saved);
   try {
     localStorage.setItem(repoWorkspaceKey(state.repo), JSON.stringify(saved));
@@ -115,7 +115,7 @@ function restoreRepoWorkspace(repo) {
   $('playback-speed').value=String(state.playbackSpeed);
   state.theme = ['fusion','jarvis','muthur'].includes(saved.theme) ? saved.theme : 'fusion';
   state.layoutMode = ['orbital','helix','hive'].includes(saved.layoutMode) ? saved.layoutMode : 'orbital';
-  state.yaw = finiteCamera(camera.yaw,.45,-Math.PI*2,Math.PI*2);state.pitch = finiteCamera(camera.pitch,.55,-.9,.9);state.zoom = finiteCamera(!saved.cameraFramingVersion && camera.zoom===1?1.2:camera.zoom,1.2,.45,3.5);
+  state.yaw = finiteCamera(camera.yaw,.45,-Math.PI*2,Math.PI*2);state.pitch = finiteCamera(camera.pitch,.55,-.9,.9);state.zoom = finiteCamera((saved.cameraFramingVersion||0)<2 && [1,1.2].includes(camera.zoom)?1.32:camera.zoom,1.32,.45,3.5);
   const navigation = sanitizeNavigation(saved.navigation);
   state.folder = navigation.folder;state.graphPage = navigation.page;state.query = navigation.query;state.expanded = navigation.expanded;
   state.selectedCommitSha = validCommitSha(saved.selectedCommitSha) ? saved.selectedCommitSha : null;
@@ -381,7 +381,7 @@ async function loadRepository(repo) {
   }
   if (version === state.version) {
     await refresh({ first: true });
-    if (version === state.version) {filePreview.restore();if(!filePreview.isOpen && !reducedMotion.matches && !document.hidden)startPlayback(true);}
+    if (version === state.version) {filePreview.restore();if(!filePreview.isOpen && !reducedMotion.matches && !document.hidden && !document.body.classList.contains('first-visit-open'))startPlayback(true);}
   }
 }
 
@@ -578,7 +578,7 @@ canvas.addEventListener('wheel',event=>{
 },{passive:false});
 function zoom(factor) {state.zoom=Math.max(.45,Math.min(3.5,state.zoom*factor));dirty=true;saveCameraSoon();}
 function setRotate(value) {state.autoRotate=value;$('rotate-button').setAttribute('aria-pressed',String(value));$('rotate-button').setAttribute('aria-label',`${value?'Stop':'Start'} automatic rotation`);dirty=true;saveCameraSoon();}
-function resetCamera() {state.yaw=.45;state.pitch=.55;state.zoom=1.2;setRotate(false);dirty=true;saveCameraSoon();}
+function resetCamera() {state.yaw=.45;state.pitch=.55;state.zoom=1.32;setRotate(false);dirty=true;saveCameraSoon();}
 
 function panel(name, open, returnFocus = false) {
   for (const other of ['files','settings']) {
@@ -692,6 +692,7 @@ setRotate(state.autoRotate && !reducedMotion.matches);
 readPalette();
 resize();
 requestAnimationFrame(frame);
+window.addEventListener('walkthrough-dismissed',()=>{if(!state.loading && !filePreview.isOpen && !reducedMotion.matches && !document.hidden)startPlayback(true);});
 createWalkthrough();
 loadRepository(state.repo);
 

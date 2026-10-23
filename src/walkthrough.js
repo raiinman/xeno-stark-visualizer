@@ -9,11 +9,14 @@ export function createWalkthrough() {
     {title:'Search and keep exploring',copy:'Find a file filters the current folder. Page arrows reveal more items in large folders. Scroll below the graph, or use Explore, for repository choices, themes, and the full folder browser.',tip:'Your files, folder, page, and view are remembered separately for each repository. You can replay this guide any time.',targets:['.search','.explore-button']}
   ];
   const storageKey='xeno-stark:walkthrough:v1';
-  let index=0;
+  let index=0,firstVisit=false;
+  const home=document.createComment('walkthrough home');panel.before(home);
+  const dialog=document.createElement('dialog');dialog.className='first-visit-dialog';dialog.setAttribute('aria-labelledby','walkthrough-title');document.body.append(dialog);
+  dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
   function remember(){try{localStorage.setItem(storageKey,'done');}catch{}}
-  function open(){index=0;panel.hidden=false;trigger.setAttribute('aria-expanded','true');render();}
+  function open(blocking=false){index=0;firstVisit=blocking;panel.hidden=false;trigger.setAttribute('aria-expanded','true');if(blocking){dialog.append(panel);document.body.classList.add('first-visit-open');dialog.showModal();}render();}
   function clearTargets(){document.querySelectorAll('.walkthrough-target').forEach(el=>el.classList.remove('walkthrough-target'));}
-  function close(){remember();panel.hidden=true;trigger.setAttribute('aria-expanded','false');clearTargets();trigger.focus({preventScroll:true});}
+  function close(){remember();panel.hidden=true;trigger.setAttribute('aria-expanded','false');clearTargets();if(firstVisit){firstVisit=false;dialog.close();home.after(panel);document.body.classList.remove('first-visit-open');window.dispatchEvent(new Event('walkthrough-dismissed'));}trigger.focus({preventScroll:true});}
   function render(){
     const step=steps[index];clearTargets();
     panel.dataset.step=String(index+1);
@@ -37,5 +40,5 @@ export function createWalkthrough() {
   },true);
   let seen=false;
   try{seen=localStorage.getItem(storageKey)==='done';}catch{}
-  if(!seen)open();
+  if(!seen)open(true);
 }
