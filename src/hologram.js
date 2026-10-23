@@ -224,7 +224,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
         const iris=ctx.createRadialGradient(p.x,p.y,2,p.x,p.y,20);iris.addColorStop(0,'#ecffff');iris.addColorStop(.2,'#21dfff');iris.addColorStop(.5,'#064369');iris.addColorStop(1,'#020f24');
         ctx.fillStyle=iris;ctx.beginPath();ctx.arc(p.x,p.y,20,0,TAU);ctx.fill();ctx.strokeStyle=cyan;ctx.lineWidth=1;
         for(const r of [9,16,21]){ctx.beginPath();ctx.arc(p.x,p.y,r,0,TAU);ctx.stroke();}
-      } else if(core.complete&&core.naturalWidth){ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,19,0,TAU);ctx.clip();ctx.drawImage(core,p.x-19,p.y-19,38,38);ctx.restore();}
+      } else if(core.complete&&core.naturalWidth){ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,19,0,TAU);ctx.clip();ctx.filter=theme==='muthur'?'sepia(1) saturate(3) hue-rotate(40deg)':'none';ctx.drawImage(core,p.x-19,p.y-19,38,38);ctx.restore();}
       ctx.strokeStyle=gold;ctx.globalAlpha=.7;ctx.lineWidth=1;ctx.beginPath();ctx.arc(p.x,p.y,24,0,TAU);ctx.stroke();
     } else if(n.folder) {
       ctx.strokeStyle=color;ctx.globalAlpha=hovered?1:.75;ctx.lineWidth=1;

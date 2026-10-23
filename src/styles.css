@@ -97,3 +97,28 @@ body.no-chamber #workspace:before{opacity:0}
 .walkthrough{position:absolute;z-index:100003;top:132px;right:18px;width:min(380px,calc(100% - 36px));max-height:calc(100% - 150px);padding:16px;background:#06151f;color:var(--text);border:1px solid var(--cyan);box-shadow:0 18px 50px #0009;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:12px}
 .walkthrough>header,.walkthrough>footer{display:flex;align-items:center;justify-content:space-between;gap:12px}.walkthrough>header{font:12px/1.5 ui-monospace,Consolas,monospace;color:var(--muted)}.walkthrough-body{overflow:auto;min-height:0}.walkthrough h2{font:600 20px/1.35 system-ui,sans-serif;margin:0 0 12px;color:var(--cyan)}.walkthrough p{font:13px/1.7 system-ui,sans-serif;margin:0 0 12px}.walkthrough .walkthrough-tip{font-size:12px;color:var(--muted);margin:0;padding-top:10px;border-top:1px solid var(--line)}.walkthrough>footer{padding-top:10px;border-top:1px solid var(--line)}.walkthrough>footer button{font-size:13px;min-height:34px;padding:6px 14px;border:1px solid var(--line)}#walkthrough-next{border-color:var(--cyan);color:var(--cyan)}.walkthrough-target{outline:2px solid var(--cyan);outline-offset:-2px}
 @media(max-width:720px){.guide-heading #help-button{max-width:none;white-space:nowrap;padding:5px 7px}.walkthrough{position:fixed;top:auto;bottom:16px;left:16px;right:16px;width:auto;max-height:min(360px,44dvh);padding:14px;gap:10px}.walkthrough[data-step='3'],.walkthrough[data-step='4']{top:112px;bottom:auto}.walkthrough h2{font-size:18px}.walkthrough p{font-size:13px}}
+
+/* Each lens owns its materials and illumination, including the command deck. */
+body[data-theme=fusion]{--bg:#03090c;--surface:#08202a;--line:#28616b;--panel:#061820;--light:#00f0ff;--chamber-tint:#123a42}
+body[data-theme=jarvis]{--bg:#020817;--surface:#082c49;--line:#216b9b;--panel:#061c32;--text:#e4f6ff;--muted:#9fcce5;--light:#20bfff;--chamber-tint:#075183}
+body[data-theme=muthur]{--bg:#030903;--surface:#122b0d;--line:#447130;--panel:#0b1c08;--text:#e7f5d4;--muted:#bad29c;--light:#81ff30;--chamber-tint:#2c4b0e}
+body[data-theme] .toolbar,body[data-theme] .timeline{background:linear-gradient(110deg,var(--surface),var(--bg) 80%);border-color:var(--line)}
+body[data-theme] #workspace{background:radial-gradient(ellipse at 50% 50%,var(--chamber-tint),var(--bg) 78%)}
+body[data-theme=jarvis] #workspace:before{opacity:.2;filter:grayscale(1) sepia(1) saturate(3) hue-rotate(160deg)}
+body[data-theme=muthur] #workspace:before{opacity:.22;filter:sepia(1) hue-rotate(40deg) saturate(2)}
+body.no-chamber #workspace:before{opacity:0}
+body[data-theme] .holo-page{background:linear-gradient(125deg,var(--surface),var(--panel) 75%);border-color:var(--cyan);box-shadow:0 14px 44px #0008,inset 0 0 42px color-mix(in srgb,var(--light) 8%,transparent)}
+body[data-theme] :is(.preview-header,.preview-footer,.preview-info){background:color-mix(in srgb,var(--surface) 65%,var(--bg));border-color:var(--line)}
+body[data-theme] :is(.drawer,.settings-panel,.walkthrough,.camera-controls,.file-dock,.graph-navigation button,.graph-navigation #graph-scope,.guide-heading button){background:var(--panel);border-color:var(--line)}
+body[data-theme] :is(.deck-panel,.deck-utilities details,.deck-toolbar input,.deck-toolbar select){background:var(--panel);border-color:var(--line)}
+body[data-theme] :is(.deck-file,.deck-sector,.dock-file,.deck-commit.is-current){background:var(--surface);border-color:var(--line);color:var(--text)}
+body[data-theme] :is(.map-status,.map-caption,.line-number){color:var(--muted)}
+body[data-theme] .line-content{color:var(--text)}
+body[data-theme] button:hover:enabled{background:var(--surface);color:var(--cyan)}
+body[data-theme] .deck-art>div{background:linear-gradient(transparent,var(--panel))}
+body[data-theme=jarvis] .deck-art img{filter:grayscale(1) sepia(1) saturate(2) hue-rotate(160deg)}
+body[data-theme=muthur] .deck-art img{filter:sepia(1) saturate(2) hue-rotate(40deg)}
+body[data-theme] .brand{text-shadow:0 0 12px color-mix(in srgb,var(--light) 35%,transparent)}
+body[data-theme] ::selection{background:var(--line);color:var(--text)}
+body[data-theme] *{scrollbar-color:var(--line) transparent}
+body[data-theme] ::-webkit-scrollbar-thumb{background:var(--line)}

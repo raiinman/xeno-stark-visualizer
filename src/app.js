@@ -61,7 +61,7 @@ const core = new Image();
 core.src = new URL('../public/assets/arc-xeno-core.jpg', import.meta.url).href;
 let width = 0, height = 0, projections = [], lastFrame = 0, dirty = true;
 let palette = {};
-let playTimer;
+let playTimer, playbackRun=0;
 let cameraDirty = false, cameraSaveTimer;
 const filePreview = createFilePreview({
   getContext: () => ({ repo: state.repo, sha: state.commits[state.index]?.sha }),
@@ -74,7 +74,7 @@ const explorer = createRepositoryExplorer({
   onRepository: repo => { const url = new URL(location.href);url.searchParams.set('repo',repo);history.replaceState(null,'',url);loadRepository(repo); },
   onCommit: index => { stopPlayback();showCommit(index); },
   onFolder: path => { state.folder = path;state.graphPage = 0;state.query = '';$('search').value = '';buildMap();$('hologram').scrollIntoView({ block: 'start', behavior: 'instant' }); },
-  onFile: file => filePreview.open(file),
+  onFile: file => openFile(file),
   onTheme: setTheme,
   onLayout: setLayout,
   onExport: exportRepository
@@ -216,6 +216,7 @@ async function showCommit(index, { animate = true } = {}) {
     const previous = new Map(state.files.map(f => [f.path, f.sha]));
     state.changed = new Set(animate ? files.filter(f => previous.get(f.path) !== f.sha).map(f => f.path) : []);
     state.changedAt = performance.now();
+    if(animate)state.entranceAt=state.changedAt;
     state.files = files;
     const navigation = reconcileNavigation({folder:state.folder,page:state.graphPage,query:state.query,expanded:state.expanded},files);
     state.folder = navigation.folder;state.graphPage = navigation.page;state.query = navigation.query;state.restoringNavigation = false;
@@ -365,7 +366,7 @@ async function loadRepository(repo) {
   }
   if (version === state.version) {
     await refresh({ first: true });
-    if (version === state.version) filePreview.restore();
+    if (version === state.version) {filePreview.restore();if(!reducedMotion.matches && !document.hidden)startPlayback(true);}
   }
 }
 
@@ -432,7 +433,7 @@ function renderFileList(files) {
       if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
       event.preventDefault();
       panel('files', false);
-      filePreview.open(file);
+      openFile(file);
     });
     fragment.append(a);
   }
@@ -546,7 +547,7 @@ canvas.addEventListener('pointerup',event=>{
     const rect=canvas.getBoundingClientRect();
     const node=hitTest(event.clientX-rect.left,event.clientY-rect.top);
     if (node?.folder) {state.folder=node.path;state.graphPage=0;state.hovered=null;$('tooltip').hidden=true;buildMap();}
-    else if (node) filePreview.open(node);
+    else if (node) openFile(node);
   }
   if (!pointers.size) drag=null;
   else {const p=[...pointers.values()][0];drag={...p,moved:true};}
@@ -597,16 +598,23 @@ $('refresh-button').onclick=()=>{notice('Checking GitHub…');refresh({first:tru
 $('retry-button').onclick=()=>loadRepository(state.repo);
 $('history').oninput=event=>{stopPlayback();showCommit(Number(event.target.value));};
 $('latest-button').onclick=()=>{stopPlayback();showCommit(state.commits.length-1);};
-function stopPlayback(){clearTimeout(playTimer);state.playing=false;$('play-button').setAttribute('aria-label','Play recent commit history');$('play-button').innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg>';}
-$('play-button').onclick=async()=>{
-  if(state.playing){stopPlayback();return;}
+function openFile(file){stopPlayback();filePreview.open(file);}
+function stopPlayback(){state.selection++;playbackRun++;clearTimeout(playTimer);state.playing=false;$('play-button').setAttribute('aria-label','Play recent commit history');$('play-button').innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg>';}
+async function startPlayback(fromStart=false){
+  if(state.playing || state.commits.length<2)return;
+  const run=++playbackRun;
   state.playing=true;
   $('play-button').setAttribute('aria-label','Pause history');
   $('play-button').innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>';
-  if(state.index===state.commits.length-1) await showCommit(0);
-  async function step(){if(!state.playing)return;if(state.index>=state.commits.length-1){stopPlayback();return;}await showCommit(state.index+1);if(state.playing)playTimer=setTimeout(step,1800);}
-  if(state.playing)playTimer=setTimeout(step,1800);
-};
+  if(fromStart || state.index===state.commits.length-1)await showCommit(0);
+  async function step(){
+    if(!state.playing || run!==playbackRun)return;
+    await showCommit((state.index+1)%state.commits.length);
+    if(state.playing && run===playbackRun)playTimer=setTimeout(step,6500);
+  }
+  if(state.playing && run===playbackRun)playTimer=setTimeout(step,6500);
+}
+$('play-button').onclick=()=>state.playing?stopPlayback():startPlayback();
 document.addEventListener('keydown',event=>{
   if (event.target.closest('.holo-page')) return;
   if(event.key==='Escape'){
