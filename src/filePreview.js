@@ -25,7 +25,7 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     try {
       const panes = [...windows.values()].sort((a,b) => Number(a.element.style.zIndex) - Number(b.element.style.zIndex)).map(win => ({
         file: { path: win.file.path, size: win.file.size, type: win.file.type },
-        context: win.context, rect: win.rect, restore: win.restore,
+        context: win.context, rect: win.rect, restore: win.restore, selectedChange: win.selectedChange,
         wrapped: !win.element.classList.contains('no-wrap'), minimized: win.minimized === true
       }));
       localStorage.setItem(storageKey(storageRepo), JSON.stringify({ version: 2, panes, manuallyArranged }));
@@ -58,7 +58,7 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
         if(/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(context.beforeSha||''))safeContext.beforeSha=context.beforeSha;
         const key = `${storageRepo}/${context.sha}/${file.path}/${safeContext.beforeSha||''}`;
         if (windows.has(key)) continue;
-        const win = createPane(safeFile, safeContext, key);
+        const win = createPane(safeFile, safeContext, key, Number.isSafeInteger(entry.selectedChange) && entry.selectedChange >= 0 ? entry.selectedChange : 0);
         win.element.classList.add('settled');
         geometry(win, validRect(entry.restore) ? bounds() : localRect(rect));
         win.restore = validRect(entry.restore) ? fit(localRect(entry.restore)) : null;
@@ -92,9 +92,11 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     saveSoon();
   }
   function focus(win, keyboard = false) {
+    const wasMinimized=win.minimized;
     if (win.minimized) geometry(win, win.restore ? bounds() : win.rect);
     win.minimized = false;
     win.element.hidden = false;
+    if(wasMinimized)win.scrollToChange?.();
     active = win;
     for (const other of windows.values()) other.element.classList.toggle('is-active', other === win);
     win.element.style.zIndex = ++layer;
@@ -218,11 +220,11 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     target.addEventListener('lostpointercapture', end);
   }
 
-  function createPane(file, context, key) {
+  function createPane(file, context, key, selectedChange=0) {
     const pane = template.content.firstElementChild.cloneNode(true);
     const view = name => pane.querySelector(`[data-preview="${name}"]`);
     let controller = null, requestId = 0;
-    const win = { element: pane, file, context, key, view, rect: null, restore: null, minimized: false, cancel: () => { requestId++; controller?.abort(); } };
+    const win = { element: pane, file, context, key, selectedChange, view, rect: null, restore: null, minimized: false, cancel: () => { requestId++; controller?.abort(); } };
     pane.setAttribute('aria-label', `${file.path} holographic file window`);
     pane.classList.toggle('diff-view',!!context.beforeSha);
     const headingId = `file-window-${++serial}`;
@@ -357,10 +359,11 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
         let current=-1;
         function go(index){
           current=Math.max(0,Math.min(index,hunks.length-1));
+          win.selectedChange=current;saveSoon();
           previous.disabled=!hunks.length||current===0;next.disabled=!hunks.length||current===hunks.length-1;
           position.textContent=hunks.length?`Change ${current+1} of ${hunks.length}`:'No text changes';
           for(const hunk of hunks)hunk.classList.remove('diff-current');
-          if(!hunks.length)return;
+          if(!hunks.length || pane.hidden)return;
           const target=hunks[current];target.classList.add('diff-current');
           const content=view('content'),head=grid.querySelector('.diff-heading');
           content.scrollTo({top:Math.max(0,content.scrollTop+target.getBoundingClientRect().top-content.getBoundingClientRect().top-nav.offsetHeight-head.offsetHeight-8),behavior:'instant'});
@@ -368,7 +371,8 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
         previous.onclick=()=>go(current-1);next.onclick=()=>go(current+1);
         view('content').replaceChildren(grid);
         view('status').textContent=truncated?'Comparison limited to first 2,000 lines per side':rows.some(r=>r.changed)?'− Before · + After · aligned lines':'No text changes (file metadata may have changed)';
-        go(0);
+        win.scrollToChange=()=>go(win.selectedChange);
+        go(win.selectedChange);
         return;
       }
       if (IMAGE.test(file.path)) {

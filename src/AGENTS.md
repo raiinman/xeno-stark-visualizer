@@ -55,3 +55,5 @@ Run `node --check src/app.js` and `node --test src/graphView.test.js src/viewCac
 
 - Diff windows have sticky Previous/Next change controls with a current/total count. Jump by contiguous edit blocks, scroll only inside the owning pane, highlight the selected block, and disable controls at the ends or for unchanged text. Controls remain usable after wrapping, resizing and minimizing.
 - Text backgrounds toggles graph label backplates, including Removed labels. It defaults off and persists independently per repository; keep the panel and code-reading surfaces intact.
+
+- Persist selectedChange (zero-based edit block) with each diff pane and its immutable before/after references. Validate on restore, clamp after diff loading, and align the saved block when a minimized pane returns. Missing values default to the first block. Restored file panes keep history paused so autoplay cannot immediately close the restored workspace.

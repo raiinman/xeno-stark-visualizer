@@ -381,7 +381,7 @@ async function loadRepository(repo) {
   }
   if (version === state.version) {
     await refresh({ first: true });
-    if (version === state.version) {filePreview.restore();if(!reducedMotion.matches && !document.hidden)startPlayback(true);}
+    if (version === state.version) {filePreview.restore();if(!filePreview.isOpen && !reducedMotion.matches && !document.hidden)startPlayback(true);}
   }
 }
 
