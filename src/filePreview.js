@@ -25,7 +25,7 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     try {
       const panes = [...windows.values()].sort((a,b) => Number(a.element.style.zIndex) - Number(b.element.style.zIndex)).map(win => ({
         file: { path: win.file.path, size: win.file.size, type: win.file.type },
-        context: win.context, rect: win.rect, restore: win.restore, selectedChange: win.selectedChange,
+        context: win.context, rect: win.rect, restore: win.restore, selectedChange: win.selectedChange, onlyChanges: win.onlyChanges,
         wrapped: !win.element.classList.contains('no-wrap'), minimized: win.minimized === true
       }));
       localStorage.setItem(storageKey(storageRepo), JSON.stringify({ version: 2, panes, manuallyArranged }));
@@ -58,7 +58,7 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
         if(/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(context.beforeSha||''))safeContext.beforeSha=context.beforeSha;
         const key = `${storageRepo}/${context.sha}/${file.path}/${safeContext.beforeSha||''}`;
         if (windows.has(key)) continue;
-        const win = createPane(safeFile, safeContext, key, Number.isSafeInteger(entry.selectedChange) && entry.selectedChange >= 0 ? entry.selectedChange : 0);
+        const win = createPane(safeFile, safeContext, key, Number.isSafeInteger(entry.selectedChange) && entry.selectedChange >= 0 ? entry.selectedChange : 0, entry.onlyChanges === true);
         win.element.classList.add('settled');
         geometry(win, validRect(entry.restore) ? bounds() : localRect(rect));
         win.restore = validRect(entry.restore) ? fit(localRect(entry.restore)) : null;
@@ -220,11 +220,11 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
     target.addEventListener('lostpointercapture', end);
   }
 
-  function createPane(file, context, key, selectedChange=0) {
+  function createPane(file, context, key, selectedChange=0, onlyChanges=false) {
     const pane = template.content.firstElementChild.cloneNode(true);
     const view = name => pane.querySelector(`[data-preview="${name}"]`);
     let controller = null, requestId = 0;
-    const win = { element: pane, file, context, key, selectedChange, view, rect: null, restore: null, minimized: false, cancel: () => { requestId++; controller?.abort(); } };
+    const win = { element: pane, file, context, key, selectedChange, onlyChanges, view, rect: null, restore: null, minimized: false, cancel: () => { requestId++; controller?.abort(); } };
     pane.setAttribute('aria-label', `${file.path} holographic file window`);
     pane.classList.toggle('diff-view',!!context.beforeSha);
     const headingId = `file-window-${++serial}`;
@@ -342,9 +342,14 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
         if(!stillCurrent())return;
         const {rows,truncated}=diffRows(before,after),grid=document.createElement('div');grid.className='diff-grid';
         for(const [label,sha] of [['Before',context.beforeSha],['After',context.sha]]){const heading=document.createElement('a');heading.className='diff-heading';heading.textContent=`${label} · ${sha.slice(0,7)}`;heading.href=`https://github.com/${context.repo}/blob/${sha}/${path}`;heading.target='_blank';heading.rel='noopener noreferrer';grid.append(heading);}
-        const hunks=[];let wasChanged=false;
+        const hunks=[];let wasChanged=false,gap=null,gapCount=0;
         for(const row of rows){
           const pair=document.createElement('div');pair.className='diff-pair';
+          if(!row.changed){
+            pair.classList.add('diff-unchanged');
+            if(!gap){gap=document.createElement('div');gap.className='diff-gap';grid.append(gap);gapCount=0;}
+            gap.textContent=`${++gapCount} unchanged ${gapCount===1?'line':'lines'} hidden`;
+          }else gap=null;
           for(const [side,value] of [['old',row.old],['next',row.next]]){
             const cell=document.createElement('div');cell.className='diff-cell'+(row.changed&&value?(side==='old'?' diff-removed':' diff-added'):'');
             const number=document.createElement('span');number.className='diff-number';number.textContent=value?`${row.changed?(side==='old'?'−':'+'):' '} ${value.line}`:'';
@@ -355,7 +360,9 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
         const nav=document.createElement('nav');nav.className='diff-navigation';nav.setAttribute('aria-label','Navigate code changes');
         const previous=document.createElement('button'),next=document.createElement('button'),position=document.createElement('span');
         previous.type=next.type='button';previous.textContent='← Previous';next.textContent='Next →';previous.setAttribute('aria-label','Previous change');next.setAttribute('aria-label','Next change');position.setAttribute('aria-live','polite');
-        nav.append(previous,position,next);grid.prepend(nav);
+        const filter=document.createElement('button');filter.type='button';filter.className='diff-filter';filter.textContent='Show only changes';filter.setAttribute('aria-pressed',String(win.onlyChanges));
+        nav.append(previous,position,next,filter);grid.prepend(nav);
+        grid.classList.toggle('diff-only',win.onlyChanges);
         let current=-1;
         function go(index){
           current=Math.max(0,Math.min(index,hunks.length-1));
@@ -369,6 +376,7 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
           content.scrollTo({top:Math.max(0,content.scrollTop+target.getBoundingClientRect().top-content.getBoundingClientRect().top-nav.offsetHeight-head.offsetHeight-8),behavior:'instant'});
         }
         previous.onclick=()=>go(current-1);next.onclick=()=>go(current+1);
+        filter.onclick=()=>{win.onlyChanges=!win.onlyChanges;grid.classList.toggle('diff-only',win.onlyChanges);filter.setAttribute('aria-pressed',String(win.onlyChanges));saveSoon();go(current);};
         view('content').replaceChildren(grid);
         view('status').textContent=truncated?'Comparison limited to first 2,000 lines per side':rows.some(r=>r.changed)?'− Before · + After · aligned lines':'No text changes (file metadata may have changed)';
         win.scrollToChange=()=>go(win.selectedChange);

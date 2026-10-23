@@ -57,3 +57,5 @@ Run `node --check src/app.js` and `node --test src/graphView.test.js src/viewCac
 - Text backgrounds toggles graph label backplates, including Removed labels. It defaults off and persists independently per repository; keep the panel and code-reading surfaces intact.
 
 - Persist selectedChange (zero-based edit block) with each diff pane and its immutable before/after references. Validate on restore, clamp after diff loading, and align the saved block when a minimized pane returns. Missing values default to the first block. Restored file panes keep history paused so autoplay cannot immediately close the restored workspace.
+
+- Each diff has a Show only changes toggle, off by default. Persist onlyChanges as a strict boolean with that pane. Hide unchanged rows while retaining original line numbers, edit-block navigation and selected block; show omission counts between blocks so separate edits do not look contiguous. Restoring a minimized pane applies both its filter and edit position.
