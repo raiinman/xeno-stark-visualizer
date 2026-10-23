@@ -59,3 +59,7 @@ Run `node --check src/app.js` and `node --test src/graphView.test.js src/viewCac
 - Persist selectedChange (zero-based edit block) with each diff pane and its immutable before/after references. Validate on restore, clamp after diff loading, and align the saved block when a minimized pane returns. Missing values default to the first block. Restored file panes keep history paused so autoplay cannot immediately close the restored workspace.
 
 - Each diff has a Show only changes toggle, off by default. Persist onlyChanges as a strict boolean with that pane. Hide unchanged rows while retaining original line numbers, edit-block navigation and selected block; show omission counts between blocks so separate edits do not look contiguous. Restoring a minimized pane applies both its filter and edit position.
+
+- Hidden unchanged-line separators are keyboard-operable buttons that independently expand/collapse their own context while Show only changes stays enabled. Keep expanded context scoped to the loaded comparison and preserve edit navigation.
+- Start/reset at zoom 1.2. Migrate the former untouched zoom 1 once, marked with cameraFramingVersion; preserve all other saved zoom choices. Camera readouts use plain Turn and Tilt labels.
+- JARVIS file nodes are distinct circular optical modules with calibrated ticks, fixed gold corner brackets and a rotating scan arc. Preserve ARC-XENO and MUTHUR designs.

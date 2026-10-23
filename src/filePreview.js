@@ -347,8 +347,12 @@ export function createFilePreview({ getContext, onOpen, onClose, onGeometryChang
           const pair=document.createElement('div');pair.className='diff-pair';
           if(!row.changed){
             pair.classList.add('diff-unchanged');
-            if(!gap){gap=document.createElement('div');gap.className='diff-gap';grid.append(gap);gapCount=0;}
-            gap.textContent=`${++gapCount} unchanged ${gapCount===1?'line':'lines'} hidden`;
+            if(!gap){
+              gap=document.createElement('button');gap.type='button';gap.className='diff-gap';gap.setAttribute('aria-expanded','false');gap.contextRows=[];
+              gap.onclick=event=>{const button=event.currentTarget,expanded=button.getAttribute('aria-expanded')!=='true';button.setAttribute('aria-expanded',String(expanded));for(const row of button.contextRows)row.classList.toggle('diff-context',expanded);button.textContent=expanded?`Hide ${button.dataset.lines} unchanged lines`:`Show ${button.dataset.lines} unchanged lines`;};
+              grid.append(gap);gapCount=0;
+            }
+            gap.contextRows.push(pair);gap.dataset.lines=String(++gapCount);gap.textContent=`Show ${gapCount} unchanged ${gapCount===1?'line':'lines'}`;
           }else gap=null;
           for(const [side,value] of [['old',row.old],['next',row.next]]){
             const cell=document.createElement('div');cell.className='diff-cell'+(row.changed&&value?(side==='old'?' diff-removed':' diff-added'):'');

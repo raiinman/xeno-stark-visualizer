@@ -257,6 +257,21 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
     } else if(n.folder) {
       ctx.strokeStyle=color;ctx.globalAlpha=hovered?1:.75;ctx.lineWidth=1;
       ctx.fillStyle='#06131bf5';ctx.beginPath();ctx.moveTo(p.x-r,p.y-r*.55);ctx.lineTo(p.x-r*.2,p.y-r*.55);ctx.lineTo(p.x+r*.1,p.y-r*.25);ctx.lineTo(p.x+r,p.y-r*.25);ctx.lineTo(p.x+r,p.y+r*.65);ctx.lineTo(p.x-r,p.y+r*.65);ctx.closePath();ctx.fill();ctx.stroke();
+    } else if(theme==='jarvis') {
+      // Precision optical modules: circular glass, calibrated ticks, fixed brackets.
+      const lens=ctx.createRadialGradient(p.x-r*.25,p.y-r*.25,0,p.x,p.y,r);
+      lens.addColorStop(0,'#efffff');lens.addColorStop(.2,color);lens.addColorStop(.55,'#093d64');lens.addColorStop(1,'#020b1c');
+      ctx.fillStyle=lens;ctx.beginPath();ctx.arc(p.x,p.y,r,0,TAU);ctx.fill();
+      ctx.strokeStyle=color;ctx.lineWidth=1;
+      for(const radius of [r*.65,r*1.15,r*1.45]){ctx.beginPath();ctx.arc(p.x,p.y,radius,0,TAU);ctx.stroke();}
+      for(let tick=0;tick<12;tick++){
+        const a=tick/12*TAU;ctx.beginPath();ctx.moveTo(p.x+Math.cos(a)*r*1.5,p.y+Math.sin(a)*r*1.5);ctx.lineTo(p.x+Math.cos(a)*r*1.75,p.y+Math.sin(a)*r*1.75);ctx.stroke();
+      }
+      ctx.strokeStyle=gold;ctx.lineWidth=1.3;
+      for(const [sx,sy] of [[-1,-1],[1,-1],[-1,1],[1,1]]){ctx.beginPath();ctx.moveTo(p.x+sx*r*1.9,p.y+sy*r*1.2);ctx.lineTo(p.x+sx*r*1.9,p.y+sy*r*1.9);ctx.lineTo(p.x+sx*r*1.2,p.y+sy*r*1.9);ctx.stroke();}
+      const sweep=clock*.001+(n.cluster||0);
+      ctx.strokeStyle=hovered?'#ffffff':color;ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,r*1.3,sweep,sweep+.65);ctx.stroke();
+      if(changed){ctx.strokeStyle=gold;ctx.beginPath();ctx.arc(p.x,p.y,r*2.1,0,TAU);ctx.stroke();}
     } else {
       // Original luminous halo, hexagonal chitin core, and arc nucleus.
       const glow=ctx.createRadialGradient(p.x,p.y,r*.2,p.x,p.y,r*2.5);
@@ -273,17 +288,17 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
       ctx.fillStyle='#041018';ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=hovered?2:1.3;ctx.stroke();
       ctx.beginPath();ctx.arc(p.x,p.y,Math.max(2,r*.34),0,TAU);ctx.fillStyle=hovered?'#ffffff':color;ctx.fill();
       // Add machinery around the existing glyph and nucleus, retaining each lens.
-      if(theme==='fusion'||theme==='jarvis'){
+      if(theme==='fusion'){
         ctx.save();ctx.strokeStyle=color;ctx.lineWidth=.8;ctx.globalAlpha=.8;
-        const spin=clock*(theme==='fusion'?.00035:-.00025)+(n.cluster||0);
+        const spin=clock*.00035+(n.cluster||0);
         for(let ring=0;ring<2;ring++){
           ctx.beginPath();ctx.ellipse(p.x,p.y,r*(1.5+ring*.25),r*(.48+ring*.15),spin+ring*Math.PI/2,0,TAU);ctx.stroke();
         }
-        const segments=theme==='jarvis'?8:6;
+        const segments=6;
         for(let i=0;i<segments;i++){
           const a=i/segments*TAU+spin;
-          ctx.beginPath();ctx.arc(p.x,p.y,r*1.8,a,a+(theme==='jarvis'?.16:.35));ctx.stroke();
-          if(i%2===0){ctx.fillStyle=theme==='jarvis'?gold:cyan;ctx.beginPath();ctx.arc(p.x+Math.cos(a)*r*1.5,p.y+Math.sin(a)*r*.55,1.4,0,TAU);ctx.fill();}
+          ctx.beginPath();ctx.arc(p.x,p.y,r*1.8,a,a+.35);ctx.stroke();
+          if(i%2===0){ctx.fillStyle=cyan;ctx.beginPath();ctx.arc(p.x+Math.cos(a)*r*1.5,p.y+Math.sin(a)*r*.55,1.4,0,TAU);ctx.fill();}
         }
         ctx.restore();
       }
@@ -299,7 +314,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
       }
     }
     ctx.restore();
-    if(n.parent&&labels&&arrival.get(n).t>.7)labelCandidates.push({...p,r,hovered});
+    if(n.parent&&labels&&arrival.get(n).t>.7)labelCandidates.push({...p,r:theme==='jarvis'&&!n.folder?r*2:r,hovered});
   }
   // Keep names legible over the effects; hidden collisions remain accessible in Files.
   const occupied=[];
@@ -328,7 +343,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
   if(width>720){
     ctx.globalAlpha=.7;ctx.font='11px ui-monospace,Consolas,monospace';ctx.fillStyle=cyan;
     const yaw=((Math.round(state.yaw*180/Math.PI)%360)+360)%360;
-    ctx.fillText(`AZ ${String(yaw).padStart(3,'0')}°  /  EL ${Math.round(state.pitch*180/Math.PI)}°`,width-180,35);
+    ctx.fillText(`Turn ${String(yaw).padStart(3,'0')}° / Tilt ${Math.round(state.pitch*180/Math.PI)}°`,width-200,35);
   }
   ctx.restore();
   if(state.previewPath && state.previewTarget){
