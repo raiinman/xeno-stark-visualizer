@@ -2,11 +2,12 @@
 
 [Open the visualizer](https://raiinman.github.io/xeno-stark-visualizer/)
 
-The original Stark/Alien holographic graph in a full-window GitHub file map. Glowing hexagonal cores float among 3D gimbal rings and flowing biomechanical tendrils. The graph is the interface: file nodes open their actual GitHub pages in a new tab, folder nodes focus the map, and the bottom timeline explores real commits.
+The original Stark/Alien holographic graph in a full-window GitHub file map. Glowing hexagonal cores float among 3D gimbal rings and flowing biomechanical tendrils. The graph is the interface: file nodes summon their actual contents in a floating holographic pane, folder nodes focus the map, and the bottom timeline explores real commits.
 
 - Drag to rotate, scroll or pinch to zoom, and use Fit view to reset. The original slow automatic orbit pauses while hovering a node and respects reduced motion.
-- Search by file name or path. The Files drawer provides ordinary, keyboard-accessible links.
-- Replay or scrub up to 40 recent commits. Links always point to the selected commit.
+- Click a file to project its code or image inside the visualizer. Dismiss the pane with Escape or its close control. Open on GitHub is available as a secondary action.
+- Search by file name or path. The Files drawer provides keyboard access to the same holographic previews.
+- Replay or scrub up to 40 recent commits. Previews and their GitHub links always point to the selected commit.
 - View options contains the original Orbital Rings, Xeno Helix, and Hive Sphere layouts, the three display themes, a file-name toggle, and the public repository switcher. A repository can also be shared with `?repo=owner/repository`.
 - Connections represent the actual folder hierarchy, not inferred dependencies. Changed file nodes briefly highlight when history advances or a new commit arrives.
 
@@ -31,4 +32,3 @@ The original analyzer (`scripts/analyze.mjs`) and engine experiments remain avai
 ## License
 
 MIT. See [LICENSE](LICENSE) and [DOX-LICENSE.txt](DOX-LICENSE.txt).
-

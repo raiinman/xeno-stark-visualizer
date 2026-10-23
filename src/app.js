@@ -1,4 +1,5 @@
 import { layoutHologramNodes, drawHologram } from './hologram.js';
+import { createFilePreview } from './filePreview.js';
 // Xeno-Stark: a repository map, with GitHub as the source of truth.
 const $ = id => document.getElementById(id);
 const DEFAULT_REPO = 'raiinman/xeno-stark-visualizer';
@@ -8,7 +9,7 @@ const state = {
   repo: validRepo(requestedRepo || '') ? requestedRepo : DEFAULT_REPO,
   branch: 'main', commits: [], index: 0, files: [], nodes: [], trees: new Map(),
   yaw: 0.45, pitch: 0.55, zoom: 1, autoRotate: true, query: '', folder: '',
-  theme: 'fusion', layoutMode: 'orbital',
+  theme: 'fusion', layoutMode: 'orbital', previewPath: null, previewTarget: null,
   hovered: null, playing: false, loading: false, version: 0, selection: 0,
   changed: new Set(), changedAt: 0, source: '', noticeTimer: null
 };
@@ -20,6 +21,11 @@ core.src = new URL('../public/assets/arc-xeno-core.jpg', import.meta.url).href;
 let width = 0, height = 0, projections = [], lastFrame = 0, dirty = true;
 let palette = {};
 let playTimer;
+const filePreview = createFilePreview({
+  getContext: () => ({ repo: state.repo, sha: state.commits[state.index]?.sha }),
+  onOpen: file => { stopPlayback(); state.previewPath = file.path; hover(null, 0, 0); dirty = true; },
+  onClose: () => { state.previewPath = null; state.previewTarget = null; canvas.focus({ preventScroll: true }); dirty = true; }
+});
 
 function notice(message, persistent = false) {
   clearTimeout(state.noticeTimer);
@@ -93,6 +99,7 @@ function updateHistory() {
 }
 
 async function showCommit(index, { animate = true } = {}) {
+  if (filePreview.isOpen) filePreview.close();
   const version = state.version;
   const selection = ++state.selection;
   const clamped = Math.max(0, Math.min(index, state.commits.length - 1));
@@ -178,6 +185,7 @@ async function refresh({ first = false } = {}) {
 }
 
 async function loadRepository(repo) {
+  filePreview.close();
   stopPlayback();
   state.version++;
   state.selection++;
@@ -279,6 +287,12 @@ function renderFileList(files) {
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
     a.textContent = file.path;
+    a.addEventListener('click', event => {
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      panel('files', false);
+      filePreview.open(file);
+    });
     fragment.append(a);
   }
   if (!files.length) {
@@ -308,6 +322,11 @@ function resize() {
 }
 
 function draw(time) {
+  if (filePreview.isOpen) {
+    const pane = $('file-preview').getBoundingClientRect();
+    const graph = canvas.getBoundingClientRect();
+    state.previewTarget = { x: pane.left - graph.left, y: pane.top - graph.top + 45 };
+  }
   projections = drawHologram({
     ctx, width, height, state, core, palette, time,
     motion: !reducedMotion.matches && !document.hidden,
@@ -318,7 +337,7 @@ function draw(time) {
 function frame(time) {
   const delta = Math.min(40, time - lastFrame);
   lastFrame = time;
-  const moving = state.autoRotate && !state.hovered && !reducedMotion.matches && !document.hidden;
+  const moving = state.autoRotate && !state.hovered && !state.previewPath && !reducedMotion.matches && !document.hidden;
   if (moving) { state.yaw += delta * 0.00013; dirty = true; }
   if (!reducedMotion.matches && !document.hidden) dirty = true;
   if (dirty) { draw(time); dirty = false; }
@@ -341,7 +360,7 @@ function hover(node, x, y) {
   if (!node) return;
   $('tooltip-name').textContent = node.name;
   $('tooltip-path').textContent = node.path;
-  $('tooltip-action').textContent = node.folder ? 'Click to focus this folder' : 'Click to open on GitHub';
+  $('tooltip-action').textContent = node.folder ? 'Click to focus this folder' : 'Click to project this file';
   const box = $('tooltip').getBoundingClientRect();
   $('tooltip').style.left = `${Math.max(12,Math.min(x+18,width-box.width-12))}px`;
   $('tooltip').style.top = `${Math.max(48,Math.min(y+18,height-box.height-55))}px`;
@@ -381,7 +400,7 @@ canvas.addEventListener('pointerup',event=>{
     const rect=canvas.getBoundingClientRect();
     const node=hitTest(event.clientX-rect.left,event.clientY-rect.top);
     if (node?.folder) {state.folder=node.path;state.hovered=null;$('tooltip').hidden=true;buildMap();}
-    else if (node) window.open(fileUrl(node),'_blank','noopener,noreferrer');
+    else if (node) filePreview.open(node);
   }
   if (!pointers.size) drag=null;
   else {const p=[...pointers.values()][0];drag={...p,moved:true};}
@@ -436,6 +455,7 @@ $('play-button').onclick=async()=>{
   if(state.playing)playTimer=setTimeout(step,1800);
 };
 document.addEventListener('keydown',event=>{
+  if (filePreview.isOpen) return;
   if(event.key==='Escape'){
     if(!$('files-panel').hidden)panel('files',false,true);
     else if(!$('settings-panel').hidden)panel('settings',false,true);

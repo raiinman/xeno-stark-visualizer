@@ -153,7 +153,7 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
   const labelCandidates=[];
   for(const p of [...projections].sort((a,b)=>b.depth-a.depth)) {
     const n=p.node;
-    const hovered=n===state.hovered;
+    const hovered=n===state.hovered || (!n.folder && n.path===state.previewPath);
     const changed=state.changed.has(n.path)&&time-state.changedAt<2500;
     const color=changed?acid:p.color;
     const size=n.folder?5:7.5+Math.min(4,Math.log2(1+(n.size||0)/700)*.65);
@@ -227,5 +227,14 @@ export function drawHologram({ctx, width, height, state, core, palette, time, mo
     ctx.fillText(`AZ ${String(yaw).padStart(3,'0')}°  /  EL ${Math.round(state.pitch*180/Math.PI)}°`,width-180,35);
   }
   ctx.restore();
+  if(state.previewPath && state.previewTarget){
+    const source=projections.find(p=>!p.node.folder && p.node.path===state.previewPath);
+    if(source){
+      const target=state.previewTarget;
+      ctx.save();ctx.strokeStyle=cyan;ctx.globalAlpha=.7;ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(source.x,source.y);ctx.lineTo(source.x+25,source.y-25);ctx.lineTo(target.x-22,target.y);ctx.lineTo(target.x,target.y);ctx.stroke();
+      ctx.fillStyle=gold;ctx.beginPath();ctx.arc(source.x,source.y,3,0,TAU);ctx.fill();ctx.restore();
+    }
+  }
   return projections;
 }
